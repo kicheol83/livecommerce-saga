@@ -50,7 +50,7 @@ Buyurtma holatini real vaqtda kuzatish uchun WebSocket'ga ulaning: `ws://localho
 
 ## Loyihaning holati
 
-Bu birinchi bosqich — Saga + Outbox oqimi to'liq ishlaydigan holatda (happy path va compensation path ikkalasi ham). Keyingi bosqichlar: Testcontainers bilan integratsion testlar, k6 yuklama testi, distributed tracing, frontend.
+Saga + Outbox oqimi qo'lda tekshirilgan va tasdiqlangan: happy path (to'lov va ombor muvaffaqiyatli, order `COMPLETED`ga yetadi) va compensation path (ombor yetarli bo'lmasa, to'lov avtomatik bekor qilinib, order `CANCELLED`ga aniq sabab bilan tushadi) — ikkalasi ham real Postgres + Kafka bilan sinaldi. Keyingi bosqichlar: Testcontainers bilan avtomatlashtirilgan integratsion testlar, k6 yuklama testi, distributed tracing, frontend.
 
 ## Muhim eslatma
 
