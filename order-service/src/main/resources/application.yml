@@ -5,7 +5,7 @@ spring:
   application:
     name: order-service
   datasource:
-    url: jdbc:postgresql://localhost:5433/order_db
+    url: jdbc:postgresql://localhost:5455/order_db
     username: order_user
     password: order_pass
   jpa:
