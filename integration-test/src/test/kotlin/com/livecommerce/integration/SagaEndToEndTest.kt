@@ -51,41 +51,50 @@ class SagaEndToEndTest {
         @BeforeAll
         fun startServices() {
             paymentCtx = SpringApplicationBuilder(PaymentServiceApplication::class.java)
-                .properties(
-                    mapOf(
-                        "server.port" to "0",
-                        "spring.datasource.url" to paymentDb.jdbcUrl,
-                        "spring.datasource.username" to paymentDb.username,
-                        "spring.datasource.password" to paymentDb.password,
-                        "spring.kafka.bootstrap-servers" to kafka.bootstrapServers
-                    )
-                ).run()
+                .run(
+                    "--spring.config.name=none",
+                    "--server.port=0",
+                    "--spring.datasource.url=${paymentDb.jdbcUrl}",
+                    "--spring.datasource.username=${paymentDb.username}",
+                    "--spring.datasource.password=${paymentDb.password}",
+                    "--spring.jpa.hibernate.ddl-auto=validate",
+                    "--spring.jpa.open-in-view=false",
+                    "--spring.flyway.enabled=true",
+                    "--spring.flyway.locations=classpath:db/migration/payment",
+                    "--spring.kafka.bootstrap-servers=${kafka.bootstrapServers}"
+                )
             val paymentPort = paymentCtx.environment.getProperty("local.server.port")
 
             inventoryCtx = SpringApplicationBuilder(InventoryServiceApplication::class.java)
-                .properties(
-                    mapOf(
-                        "server.port" to "0",
-                        "spring.datasource.url" to inventoryDb.jdbcUrl,
-                        "spring.datasource.username" to inventoryDb.username,
-                        "spring.datasource.password" to inventoryDb.password,
-                        "spring.kafka.bootstrap-servers" to kafka.bootstrapServers
-                    )
-                ).run()
+                .run(
+                    "--spring.config.name=none",
+                    "--server.port=0",
+                    "--spring.datasource.url=${inventoryDb.jdbcUrl}",
+                    "--spring.datasource.username=${inventoryDb.username}",
+                    "--spring.datasource.password=${inventoryDb.password}",
+                    "--spring.jpa.hibernate.ddl-auto=validate",
+                    "--spring.jpa.open-in-view=false",
+                    "--spring.flyway.enabled=true",
+                    "--spring.flyway.locations=classpath:db/migration/inventory",
+                    "--spring.kafka.bootstrap-servers=${kafka.bootstrapServers}"
+                )
             val inventoryPort = inventoryCtx.environment.getProperty("local.server.port")
 
             orderCtx = SpringApplicationBuilder(OrderServiceApplication::class.java)
-                .properties(
-                    mapOf(
-                        "server.port" to "0",
-                        "spring.datasource.url" to orderDb.jdbcUrl,
-                        "spring.datasource.username" to orderDb.username,
-                        "spring.datasource.password" to orderDb.password,
-                        "spring.kafka.bootstrap-servers" to kafka.bootstrapServers,
-                        "services.payment.base-url" to "http://localhost:$paymentPort",
-                        "services.inventory.base-url" to "http://localhost:$inventoryPort"
-                    )
-                ).run()
+                .run(
+                    "--spring.config.name=none",
+                    "--server.port=0",
+                    "--spring.datasource.url=${orderDb.jdbcUrl}",
+                    "--spring.datasource.username=${orderDb.username}",
+                    "--spring.datasource.password=${orderDb.password}",
+                    "--spring.jpa.hibernate.ddl-auto=validate",
+                    "--spring.jpa.open-in-view=false",
+                    "--spring.flyway.enabled=true",
+                    "--spring.flyway.locations=classpath:db/migration/order",
+                    "--spring.kafka.bootstrap-servers=${kafka.bootstrapServers}",
+                    "--services.payment.base-url=http://localhost:$paymentPort",
+                    "--services.inventory.base-url=http://localhost:$inventoryPort"
+                )
             orderPort = orderCtx.environment.getProperty("local.server.port")!!.toInt()
         }
 
