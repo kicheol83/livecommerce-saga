@@ -14,5 +14,6 @@ spring:
     open-in-view: false
   flyway:
     enabled: true
+    locations: classpath:db/migration/payment
   kafka:
     bootstrap-servers: localhost:9094
