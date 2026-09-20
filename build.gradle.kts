@@ -44,4 +44,8 @@ subprojects {
     tasks.withType<Test> {
         useJUnitPlatform()
     }
+
+    dependencies {
+        add("testRuntimeOnly", "org.junit.platform:junit-platform-launcher")
+    }
 }
