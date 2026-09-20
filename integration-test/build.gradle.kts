@@ -8,3 +8,18 @@ dependencies {
     testImplementation("org.testcontainers:postgresql")
     testImplementation("org.testcontainers:kafka")
 }
+
+tasks.withType<Test> {
+    systemProperty(
+        "order.migrations.path",
+        file("$rootDir/order-service/src/main/resources/db/migration/order").absolutePath
+    )
+    systemProperty(
+        "payment.migrations.path",
+        file("$rootDir/payment-service/src/main/resources/db/migration/payment").absolutePath
+    )
+    systemProperty(
+        "inventory.migrations.path",
+        file("$rootDir/inventory-service/src/main/resources/db/migration/inventory").absolutePath
+    )
+}

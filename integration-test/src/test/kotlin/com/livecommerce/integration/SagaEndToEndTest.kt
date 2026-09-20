@@ -60,7 +60,7 @@ class SagaEndToEndTest {
                     "--spring.jpa.hibernate.ddl-auto=validate",
                     "--spring.jpa.open-in-view=false",
                     "--spring.flyway.enabled=true",
-                    "--spring.flyway.locations=classpath:db/migration/payment",
+                    "--spring.flyway.locations=filesystem:${System.getProperty("payment.migrations.path")}",
                     "--spring.kafka.bootstrap-servers=${kafka.bootstrapServers}"
                 )
             val paymentPort = paymentCtx.environment.getProperty("local.server.port")
@@ -75,7 +75,7 @@ class SagaEndToEndTest {
                     "--spring.jpa.hibernate.ddl-auto=validate",
                     "--spring.jpa.open-in-view=false",
                     "--spring.flyway.enabled=true",
-                    "--spring.flyway.locations=classpath:db/migration/inventory",
+                    "--spring.flyway.locations=filesystem:${System.getProperty("inventory.migrations.path")}",
                     "--spring.kafka.bootstrap-servers=${kafka.bootstrapServers}"
                 )
             val inventoryPort = inventoryCtx.environment.getProperty("local.server.port")
@@ -90,7 +90,7 @@ class SagaEndToEndTest {
                     "--spring.jpa.hibernate.ddl-auto=validate",
                     "--spring.jpa.open-in-view=false",
                     "--spring.flyway.enabled=true",
-                    "--spring.flyway.locations=classpath:db/migration/order",
+                    "--spring.flyway.locations=filesystem:${System.getProperty("order.migrations.path")}",
                     "--spring.kafka.bootstrap-servers=${kafka.bootstrapServers}",
                     "--services.payment.base-url=http://localhost:$paymentPort",
                     "--services.inventory.base-url=http://localhost:$inventoryPort"
