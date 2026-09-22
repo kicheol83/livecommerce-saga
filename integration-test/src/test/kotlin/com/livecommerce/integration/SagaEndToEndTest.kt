@@ -6,6 +6,7 @@ import com.livecommerce.inventory.InventoryServiceApplication
 import com.livecommerce.order.OrderServiceApplication
 import com.livecommerce.payment.PaymentServiceApplication
 import org.assertj.core.api.Assertions.assertThat
+import org.flywaydb.core.Flyway
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
@@ -50,6 +51,10 @@ class SagaEndToEndTest {
         @JvmStatic
         @BeforeAll
         fun startServices() {
+            runMigrations(paymentDb, System.getProperty("payment.migrations.path"))
+            runMigrations(inventoryDb, System.getProperty("inventory.migrations.path"))
+            runMigrations(orderDb, System.getProperty("order.migrations.path"))
+
             paymentCtx = SpringApplicationBuilder(PaymentServiceApplication::class.java)
                 .run(
                     "--spring.config.name=none",
@@ -59,8 +64,7 @@ class SagaEndToEndTest {
                     "--spring.datasource.password=${paymentDb.password}",
                     "--spring.jpa.hibernate.ddl-auto=validate",
                     "--spring.jpa.open-in-view=false",
-                    "--spring.flyway.enabled=true",
-                    "--spring.flyway.locations[0]=filesystem:${System.getProperty("payment.migrations.path")}",
+                    "--spring.flyway.enabled=false",
                     "--spring.kafka.bootstrap-servers=${kafka.bootstrapServers}"
                 )
             val paymentPort = paymentCtx.environment.getProperty("local.server.port")
@@ -74,8 +78,7 @@ class SagaEndToEndTest {
                     "--spring.datasource.password=${inventoryDb.password}",
                     "--spring.jpa.hibernate.ddl-auto=validate",
                     "--spring.jpa.open-in-view=false",
-                    "--spring.flyway.enabled=true",
-                    "--spring.flyway.locations[0]=filesystem:${System.getProperty("inventory.migrations.path")}",
+                    "--spring.flyway.enabled=false",
                     "--spring.kafka.bootstrap-servers=${kafka.bootstrapServers}"
                 )
             val inventoryPort = inventoryCtx.environment.getProperty("local.server.port")
@@ -89,13 +92,21 @@ class SagaEndToEndTest {
                     "--spring.datasource.password=${orderDb.password}",
                     "--spring.jpa.hibernate.ddl-auto=validate",
                     "--spring.jpa.open-in-view=false",
-                    "--spring.flyway.enabled=true",
-                    "--spring.flyway.locations[0]=filesystem:${System.getProperty("order.migrations.path")}",
+                    "--spring.flyway.enabled=false",
                     "--spring.kafka.bootstrap-servers=${kafka.bootstrapServers}",
                     "--services.payment.base-url=http://localhost:$paymentPort",
                     "--services.inventory.base-url=http://localhost:$inventoryPort"
                 )
             orderPort = orderCtx.environment.getProperty("local.server.port")!!.toInt()
+        }
+
+        @JvmStatic
+        private fun runMigrations(db: KPostgresContainer, migrationsPath: String) {
+            Flyway.configure()
+                .dataSource(db.jdbcUrl, db.username, db.password)
+                .locations("filesystem:$migrationsPath")
+                .load()
+                .migrate()
         }
 
         @JvmStatic
