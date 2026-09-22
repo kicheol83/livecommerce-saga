@@ -55,49 +55,32 @@ class SagaEndToEndTest {
             runMigrations(inventoryDb, System.getProperty("inventory.migrations.path"))
             runMigrations(orderDb, System.getProperty("order.migrations.path"))
 
-            paymentCtx = SpringApplicationBuilder(PaymentServiceApplication::class.java)
-                .run(
-                    "--spring.config.name=none",
-                    "--server.port=0",
-                    "--spring.datasource.url=${paymentDb.jdbcUrl}",
-                    "--spring.datasource.username=${paymentDb.username}",
-                    "--spring.datasource.password=${paymentDb.password}",
-                    "--spring.jpa.hibernate.ddl-auto=validate",
-                    "--spring.jpa.open-in-view=false",
-                    "--spring.flyway.enabled=false",
-                    "--spring.kafka.bootstrap-servers=${kafka.bootstrapServers}"
-                )
+            configureCommonProperties(paymentDb)
+            paymentCtx = SpringApplicationBuilder(PaymentServiceApplication::class.java).run()
             val paymentPort = paymentCtx.environment.getProperty("local.server.port")
 
-            inventoryCtx = SpringApplicationBuilder(InventoryServiceApplication::class.java)
-                .run(
-                    "--spring.config.name=none",
-                    "--server.port=0",
-                    "--spring.datasource.url=${inventoryDb.jdbcUrl}",
-                    "--spring.datasource.username=${inventoryDb.username}",
-                    "--spring.datasource.password=${inventoryDb.password}",
-                    "--spring.jpa.hibernate.ddl-auto=validate",
-                    "--spring.jpa.open-in-view=false",
-                    "--spring.flyway.enabled=false",
-                    "--spring.kafka.bootstrap-servers=${kafka.bootstrapServers}"
-                )
+            configureCommonProperties(inventoryDb)
+            inventoryCtx = SpringApplicationBuilder(InventoryServiceApplication::class.java).run()
             val inventoryPort = inventoryCtx.environment.getProperty("local.server.port")
 
-            orderCtx = SpringApplicationBuilder(OrderServiceApplication::class.java)
-                .run(
-                    "--spring.config.name=none",
-                    "--server.port=0",
-                    "--spring.datasource.url=${orderDb.jdbcUrl}",
-                    "--spring.datasource.username=${orderDb.username}",
-                    "--spring.datasource.password=${orderDb.password}",
-                    "--spring.jpa.hibernate.ddl-auto=validate",
-                    "--spring.jpa.open-in-view=false",
-                    "--spring.flyway.enabled=false",
-                    "--spring.kafka.bootstrap-servers=${kafka.bootstrapServers}",
-                    "--services.payment.base-url=http://localhost:$paymentPort",
-                    "--services.inventory.base-url=http://localhost:$inventoryPort"
-                )
+            configureCommonProperties(orderDb)
+            System.setProperty("services.payment.base-url", "http://localhost:$paymentPort")
+            System.setProperty("services.inventory.base-url", "http://localhost:$inventoryPort")
+            orderCtx = SpringApplicationBuilder(OrderServiceApplication::class.java).run()
             orderPort = orderCtx.environment.getProperty("local.server.port")!!.toInt()
+        }
+
+        @JvmStatic
+        private fun configureCommonProperties(db: KPostgresContainer) {
+            System.setProperty("spring.config.name", "none")
+            System.setProperty("server.port", "0")
+            System.setProperty("spring.datasource.url", db.jdbcUrl)
+            System.setProperty("spring.datasource.username", db.username)
+            System.setProperty("spring.datasource.password", db.password)
+            System.setProperty("spring.jpa.hibernate.ddl-auto", "validate")
+            System.setProperty("spring.jpa.open-in-view", "false")
+            System.setProperty("spring.flyway.enabled", "false")
+            System.setProperty("spring.kafka.bootstrap-servers", kafka.bootstrapServers)
         }
 
         @JvmStatic
