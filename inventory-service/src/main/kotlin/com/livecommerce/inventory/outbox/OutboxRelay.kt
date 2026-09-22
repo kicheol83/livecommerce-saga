@@ -23,12 +23,13 @@ class OutboxRelay(
             return
         }
         pending.forEach { event ->
-            val message = MessageBuilder
+            val builder = MessageBuilder
                 .withPayload(event.payload)
                 .setHeader(KafkaHeaders.TOPIC, event.topic)
                 .setHeader(KafkaHeaders.KEY, event.aggregateId.toString())
                 .setHeader("eventType", event.eventType)
-                .build()
+            event.traceParent?.let { builder.setHeader("traceparent", it) }
+            val message = builder.build()
             kafkaTemplate.send(message)
             event.status = OutboxStatus.PUBLISHED
         }

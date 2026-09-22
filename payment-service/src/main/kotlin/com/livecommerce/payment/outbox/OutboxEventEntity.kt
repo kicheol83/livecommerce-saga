@@ -34,6 +34,9 @@ class OutboxEventEntity(
     @Column(nullable = false)
     val topic: String,
 
+    @Column(name = "trace_parent")
+    val traceParent: String? = null,
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     var status: OutboxStatus = OutboxStatus.PENDING,
