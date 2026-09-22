@@ -43,11 +43,12 @@ docker compose up --build
 `integration-test` moduli, `docker compose up`(yoki alohida `bootRun`) orqali **allaqachon ishlab turgan** stackka real HTTP so'rovlar yuborib, baxtli yo'l va compensation yo'lini avtomatik tekshiradi, va outbox jadvallarini to'g'ridan-to'g'ri bazadan tasdiqlaydi. Avval stackni ko'taring, so'ng testni ishga tushiring:
 
 ```powershell
+.\gradlew assemble
 docker compose up -d postgres-order postgres-payment postgres-inventory kafka
-gradle :order-service:bootRun
-gradle :payment-service:bootRun
-gradle :inventory-service:bootRun
-gradle :integration-test:test
+& "$env:JAVA_HOME\bin\java.exe" -jar order-service\build\libs\order-service-0.1.0.jar
+& "$env:JAVA_HOME\bin\java.exe" -jar payment-service\build\libs\payment-service-0.1.0.jar
+& "$env:JAVA_HOME\bin\java.exe" -jar inventory-service\build\libs\inventory-service-0.1.0.jar
+.\gradlew :integration-test:test
 ```
 
 ## Test uchun namuna so'rov
