@@ -13,9 +13,10 @@ data class ReserveInventoryRequest(
 
 @Component
 class InventoryClient(
-    @Value("\${services.inventory.base-url}") baseUrl: String
+    @Value("\${services.inventory.base-url}") baseUrl: String,
+    restClientBuilder: RestClient.Builder
 ) {
-    private val client = RestClient.builder().baseUrl(baseUrl).build()
+    private val client = restClientBuilder.baseUrl(baseUrl).build()
 
     fun reserveInventory(request: ReserveInventoryRequest) {
         client.post()

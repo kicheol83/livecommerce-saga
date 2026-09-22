@@ -18,9 +18,10 @@ data class CancelPaymentRequest(
 
 @Component
 class PaymentClient(
-    @Value("\${services.payment.base-url}") baseUrl: String
+    @Value("\${services.payment.base-url}") baseUrl: String,
+    restClientBuilder: RestClient.Builder
 ) {
-    private val client = RestClient.builder().baseUrl(baseUrl).build()
+    private val client = restClientBuilder.baseUrl(baseUrl).build()
 
     fun reservePayment(request: ReservePaymentRequest) {
         client.post()
