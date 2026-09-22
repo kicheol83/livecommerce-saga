@@ -2,19 +2,8 @@ package com.livecommerce.integration
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.livecommerce.inventory.InventoryServiceApplication
-import com.livecommerce.order.OrderServiceApplication
-import com.livecommerce.payment.PaymentServiceApplication
 import org.assertj.core.api.Assertions.assertThat
-import org.flywaydb.core.Flyway
-import org.junit.jupiter.api.AfterAll
-import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
-import org.springframework.boot.builder.SpringApplicationBuilder
-import org.springframework.context.ConfigurableApplicationContext
-import org.testcontainers.junit.jupiter.Container
-import org.testcontainers.junit.jupiter.Testcontainers
-import org.testcontainers.utility.DockerImageName
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
@@ -23,87 +12,12 @@ import java.sql.DriverManager
 import java.time.Duration
 import java.util.UUID
 
-@Testcontainers
 class SagaEndToEndTest {
-
-    companion object {
-        @Container
-        @JvmStatic
-        val orderDb = KPostgresContainer("postgres:16")
-
-        @Container
-        @JvmStatic
-        val paymentDb = KPostgresContainer("postgres:16")
-
-        @Container
-        @JvmStatic
-        val inventoryDb = KPostgresContainer("postgres:16")
-
-        @Container
-        @JvmStatic
-        val kafka = KKafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:7.7.1")).withKraft()
-
-        private lateinit var orderCtx: ConfigurableApplicationContext
-        private lateinit var paymentCtx: ConfigurableApplicationContext
-        private lateinit var inventoryCtx: ConfigurableApplicationContext
-        private var orderPort: Int = 0
-
-        @JvmStatic
-        @BeforeAll
-        fun startServices() {
-            runMigrations(paymentDb, System.getProperty("payment.migrations.path"))
-            runMigrations(inventoryDb, System.getProperty("inventory.migrations.path"))
-            runMigrations(orderDb, System.getProperty("order.migrations.path"))
-
-            configureCommonProperties(paymentDb)
-            paymentCtx = SpringApplicationBuilder(PaymentServiceApplication::class.java).run()
-            val paymentPort = paymentCtx.environment.getProperty("local.server.port")
-
-            configureCommonProperties(inventoryDb)
-            inventoryCtx = SpringApplicationBuilder(InventoryServiceApplication::class.java).run()
-            val inventoryPort = inventoryCtx.environment.getProperty("local.server.port")
-
-            configureCommonProperties(orderDb)
-            System.setProperty("services.payment.base-url", "http://localhost:$paymentPort")
-            System.setProperty("services.inventory.base-url", "http://localhost:$inventoryPort")
-            orderCtx = SpringApplicationBuilder(OrderServiceApplication::class.java).run()
-            orderPort = orderCtx.environment.getProperty("local.server.port")!!.toInt()
-        }
-
-        @JvmStatic
-        private fun configureCommonProperties(db: KPostgresContainer) {
-            System.setProperty("spring.config.name", "none")
-            System.setProperty("server.port", "0")
-            System.setProperty("spring.datasource.url", db.jdbcUrl)
-            System.setProperty("spring.datasource.username", db.username)
-            System.setProperty("spring.datasource.password", db.password)
-            System.setProperty("spring.jpa.hibernate.ddl-auto", "validate")
-            System.setProperty("spring.jpa.open-in-view", "false")
-            System.setProperty("spring.flyway.enabled", "false")
-            System.setProperty("spring.kafka.bootstrap-servers", kafka.bootstrapServers)
-        }
-
-        @JvmStatic
-        private fun runMigrations(db: KPostgresContainer, migrationsPath: String) {
-            Flyway.configure()
-                .dataSource(db.jdbcUrl, db.username, db.password)
-                .locations("filesystem:$migrationsPath")
-                .load()
-                .migrate()
-        }
-
-        @JvmStatic
-        @AfterAll
-        fun stopServices() {
-            orderCtx.close()
-            inventoryCtx.close()
-            paymentCtx.close()
-        }
-    }
 
     private val httpClient = HttpClient.newHttpClient()
     private val objectMapper = ObjectMapper()
     private val productId = UUID.fromString("11111111-1111-1111-1111-111111111111")
+    private val orderServiceUrl = "http://localhost:8081"
 
     @Test
     fun `order completes when payment and inventory both succeed`() {
@@ -112,8 +26,12 @@ class SagaEndToEndTest {
         val finalStatus = pollUntilTerminal(orderId)
 
         assertThat(finalStatus).isEqualTo("COMPLETED")
-        assertThat(outboxEventPublished(paymentDb, orderId, "PaymentReserved")).isTrue()
-        assertThat(outboxEventPublished(inventoryDb, orderId, "InventoryReserved")).isTrue()
+        assertThat(
+            outboxEventPublished(5456, "payment_db", "payment_user", "payment_pass", orderId, "PaymentReserved")
+        ).isTrue()
+        assertThat(
+            outboxEventPublished(5457, "inventory_db", "inventory_user", "inventory_pass", orderId, "InventoryReserved")
+        ).isTrue()
     }
 
     @Test
@@ -123,8 +41,12 @@ class SagaEndToEndTest {
         val finalStatus = pollUntilTerminal(orderId)
 
         assertThat(finalStatus).isEqualTo("CANCELLED")
-        assertThat(outboxEventPublished(inventoryDb, orderId, "InventoryFailed")).isTrue()
-        assertThat(outboxEventPublished(paymentDb, orderId, "PaymentCancelled")).isTrue()
+        assertThat(
+            outboxEventPublished(5457, "inventory_db", "inventory_user", "inventory_pass", orderId, "InventoryFailed")
+        ).isTrue()
+        assertThat(
+            outboxEventPublished(5456, "payment_db", "payment_user", "payment_pass", orderId, "PaymentCancelled")
+        ).isTrue()
         assertThat(fetchOrder(orderId).get("failureReason").asText()).isEqualTo("insufficient stock")
     }
 
@@ -134,7 +56,7 @@ class SagaEndToEndTest {
             {"memberId":"$memberId","productId":"$productId","quantity":$quantity,"amount":$amount}
         """.trimIndent()
         val request = HttpRequest.newBuilder()
-            .uri(URI.create("http://localhost:$orderPort/api/orders"))
+            .uri(URI.create("$orderServiceUrl/api/orders"))
             .header("Content-Type", "application/json")
             .POST(HttpRequest.BodyPublishers.ofString(body))
             .build()
@@ -145,7 +67,7 @@ class SagaEndToEndTest {
 
     private fun fetchOrder(orderId: String): JsonNode {
         val request = HttpRequest.newBuilder()
-            .uri(URI.create("http://localhost:$orderPort/api/orders/$orderId"))
+            .uri(URI.create("$orderServiceUrl/api/orders/$orderId"))
             .GET()
             .build()
         val response = httpClient.send(request, HttpResponse.BodyHandlers.ofString())
@@ -165,8 +87,15 @@ class SagaEndToEndTest {
         return lastStatus
     }
 
-    private fun outboxEventPublished(db: KPostgresContainer, aggregateId: String, eventType: String): Boolean {
-        DriverManager.getConnection(db.jdbcUrl, db.username, db.password).use { connection ->
+    private fun outboxEventPublished(
+        port: Int,
+        database: String,
+        username: String,
+        password: String,
+        aggregateId: String,
+        eventType: String
+    ): Boolean {
+        DriverManager.getConnection("jdbc:postgresql://localhost:$port/$database", username, password).use { connection ->
             connection.prepareStatement(
                 "select status from outbox_events where aggregate_id = ? and event_type = ?"
             ).use { statement ->
