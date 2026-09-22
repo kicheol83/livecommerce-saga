@@ -40,9 +40,13 @@ docker compose up --build
 
 ## Avtomatlashtirilgan integratsion test
 
-`integration-test` moduli uchala servisni ham (Testcontainers Postgres x3 + Kafka bilan) bitta JVM ichida ko'taradi va real HTTP so'rovlar orqali baxtli yo'l va compensation yo'lini avtomatik tekshiradi. Faqat Docker ishlab turgan bo'lishi kerak (alohida `docker compose up` shart emas — Testcontainers o'zi konteynerlarni boshqaradi):
+`integration-test` moduli, `docker compose up`(yoki alohida `bootRun`) orqali **allaqachon ishlab turgan** stackka real HTTP so'rovlar yuborib, baxtli yo'l va compensation yo'lini avtomatik tekshiradi, va outbox jadvallarini to'g'ridan-to'g'ri bazadan tasdiqlaydi. Avval stackni ko'taring, so'ng testni ishga tushiring:
 
 ```powershell
+docker compose up -d postgres-order postgres-payment postgres-inventory kafka
+gradle :order-service:bootRun
+gradle :payment-service:bootRun
+gradle :inventory-service:bootRun
 gradle :integration-test:test
 ```
 
