@@ -67,6 +67,18 @@ services:
     networks:
       - livecommerce_network
 
+  jaeger:
+    image: jaegertracing/all-in-one:1.62
+    container_name: jaeger
+    restart: unless-stopped
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "16686:16686"
+      - "4318:4318"
+    networks:
+      - livecommerce_network
+
   order-service:
     build:
       context: .
@@ -75,6 +87,7 @@ services:
     restart: unless-stopped
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-order:5432/order_db
+      MANAGEMENT_OTLP_TRACING_ENDPOINT: http://jaeger:4318/v1/traces
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       SERVICES_PAYMENT_BASE-URL: http://payment-service:8082
       SERVICES_INVENTORY_BASE-URL: http://inventory-service:8083
@@ -94,6 +107,7 @@ services:
     restart: unless-stopped
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-payment:5432/payment_db
+      MANAGEMENT_OTLP_TRACING_ENDPOINT: http://jaeger:4318/v1/traces
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     ports:
       - "8082:8082"
@@ -111,6 +125,7 @@ services:
     restart: unless-stopped
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-inventory:5432/inventory_db
+      MANAGEMENT_OTLP_TRACING_ENDPOINT: http://jaeger:4318/v1/traces
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     ports:
       - "8083:8083"
