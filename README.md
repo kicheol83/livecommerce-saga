@@ -51,6 +51,16 @@ docker compose up -d postgres-order postgres-payment postgres-inventory kafka
 .\gradlew :integration-test:test
 ```
 
+## Distributed tracing
+
+Uchala servis Micrometer Tracing (OpenTelemetry bridge) orqali span'larni OTLP bilan Jaeger'ga yuboradi. REST chaqiruvlari va Kafka listener'lari avtomatik instrumentlangan. Outbox relay alohida `@Scheduled` oqimda ishlagani uchun trace konteksti odatda shu yerda uzilib qoladi. Buning oldini olish uchun har bir outbox yozuvi W3C `traceparent` qiymatini o'zi bilan saqlaydi, relay esa uni Kafka header'iga qayta qo'yadi. Natijada bitta buyurtma Order → Payment → Kafka → Order → Inventory → Kafka → Order zanjiri bo'ylab Jaeger'da bitta uzluksiz trace bo'lib ko'rinadi.
+
+```powershell
+docker compose up -d jaeger
+```
+
+Jaeger UI: http://localhost:16686 — Service: `order-service`, so'ng "Find Traces".
+
 ## Test uchun namuna so'rov
 
 ```powershell
