@@ -12,14 +12,14 @@ dependencies {
 tasks.withType<Test> {
     systemProperty(
         "order.migrations.path",
-        file("$rootDir/order-service/src/main/resources/db/migration/order").absolutePath
+        file("$rootDir/order-service/src/main/resources/db/migration/order").absolutePath.replace("\\", "/")
     )
     systemProperty(
         "payment.migrations.path",
-        file("$rootDir/payment-service/src/main/resources/db/migration/payment").absolutePath
+        file("$rootDir/payment-service/src/main/resources/db/migration/payment").absolutePath.replace("\\", "/")
     )
     systemProperty(
         "inventory.migrations.path",
-        file("$rootDir/inventory-service/src/main/resources/db/migration/inventory").absolutePath
+        file("$rootDir/inventory-service/src/main/resources/db/migration/inventory").absolutePath.replace("\\", "/")
     )
 }
