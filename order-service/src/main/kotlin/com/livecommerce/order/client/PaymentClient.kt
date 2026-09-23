@@ -21,7 +21,10 @@ class PaymentClient(
     @Value("\${services.payment.base-url}") baseUrl: String,
     restClientBuilder: RestClient.Builder
 ) {
-    private val client = restClientBuilder.baseUrl(baseUrl).build()
+    private val client = restClientBuilder
+        .baseUrl(baseUrl)
+        .requestFactory(timeoutRequestFactory())
+        .build()
 
     fun reservePayment(request: ReservePaymentRequest) {
         client.post()
