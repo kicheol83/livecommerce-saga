@@ -48,11 +48,12 @@ docker compose up -d postgres-order postgres-payment postgres-inventory kafka ja
 & "$env:JAVA_HOME\bin\java.exe" -jar order-service\build\libs\order-service-0.1.0.jar
 & "$env:JAVA_HOME\bin\java.exe" -jar payment-service\build\libs\payment-service-0.1.0.jar
 & "$env:JAVA_HOME\bin\java.exe" -jar inventory-service\build\libs\inventory-service-0.1.0.jar
+& "$env:JAVA_HOME\bin\java.exe" -jar live-service\build\libs\live-service-0.1.0.jar
 .\gradlew :integration-test:test
 .\gradlew :integration-test:chaosTest
 ```
 
-`test` baxtli yo'l, stok yetishmaganda compensation va takroriy so'rovlarga idempotentlikni tekshiradi. `chaosTest` esa Kafka va bazalarni haqiqatan to'xtatib, qayta ishga tushiradi (bir necha daqiqa davom etadi).
+`test` baxtli yo'l, stok yetishmaganda compensation, takroriy so'rovlarga idempotentlik va live-service'ning stok ma'lumotini tekshiradi. `chaosTest` esa Kafka va bazalarni haqiqatan to'xtatib, qayta ishga tushiradi (bir necha daqiqa davom etadi).
 
 ## Nima buziladi va qanday tiklanadi
 
@@ -64,6 +65,22 @@ docker compose up -d postgres-order postgres-payment postgres-inventory kafka ja
 | Bir xil xabar ikki marta keladi | Har bir holat o'tishi faqat kutilgan holatdan ruxsat etiladi (`@Version` bilan himoyalangan), payment va inventory `order_id` bo'yicha idempotent | `IdempotencyTest` |
 | Bekor qilingandan keyin kech javob keladi | Bekor qilingan buyurtma uchun kelgan `PaymentReserved` to'lovni bekor qiladi, `InventoryReserved` esa zaxirani qaytaradi | Orkestrator mantiqi |
 | Ikkita parallel release | Reservation qatori `SELECT ... FOR UPDATE` bilan qulflanadi, stok ikki marta qaytarilmaydi | `IdempotencyTest` |
+
+## Live efir servisi
+
+`live-service` (port 8084) efir sessiyasini, chatni, tomoshabinlar sonini va real vaqtdagi stokni boshqaradi. U ma'lumotlar bazasiga ega emas: sessiya konfiguratsiyadan olinadi, stok esa inventory'dan keladi.
+
+| Kanal | Manzil | Tavsif |
+| --- | --- | --- |
+| REST | `GET /api/live/session` | Efir, mahsulot, narx, joriy stok, chegirma tugash vaqti, tomoshabinlar soni |
+| REST | `GET /api/live/chat` | Oxirgi 50 ta chat xabari |
+| STOMP | `ws://localhost:8084/ws/live` | WebSocket endpoint |
+| STOMP | `/app/live/chat` | Chat xabarini yuborish |
+| STOMP | `/topic/live/chat`, `/topic/live/stock`, `/topic/live/viewers` | Chat, stok va tomoshabinlar soni obunalari |
+
+Stok har o'zgarganda (band qilish yoki qaytarish) inventory `StockChanged` hodisasini xuddi shu tranzaksiya ichida outbox'ga yozadi. Hodisa kaliti `productId`, shuning uchun Kafka bitta mahsulotning o'zgarishlarini tartib bilan yetkazadi. live-service hodisani `stock-events` topic'idan o'qib, barcha tomoshabinlarga STOMP orqali yuboradi.
+
+Cheklov: chat tarixi va tomoshabinlar soni xotirada saqlanadi, shuning uchun live-service hozircha bitta instansiyada ishlaydi. Gorizontal masshtablash uchun ularni Redis'ga o'tkazish va har bir instansiyaga alohida Kafka consumer group berish kerak bo'ladi.
 
 ## Distributed tracing
 
@@ -87,4 +104,4 @@ Buyurtma holatini real vaqtda kuzatish uchun WebSocket'ga ulaning: `ws://localho
 
 ## Loyihaning holati
 
-Saga + Outbox oqimi, idempotentlik, timeout asosidagi tiklanish, distributed tracing va chaos testlari tayyor. Keyingi bosqichlar: frontend (live efir ekrani va Saga holat paneli), k6 yuklama testi.
+Saga + Outbox oqimi, idempotentlik, timeout asosidagi tiklanish, distributed tracing, chaos testlari va live efir servisi tayyor. Keyingi bosqichlar: frontend (live efir ekrani va Saga holat paneli), k6 yuklama testi.
