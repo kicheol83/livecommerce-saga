@@ -69,7 +69,8 @@ class OrderSagaOrchestrator(
             statusPublisher.publish(completed)
             return
         }
-        if (currentStatus(orderId) in RELEASABLE_STATUSES) {
+        val status = currentStatus(orderId) ?: return
+        if (status in RELEASABLE_STATUSES) {
             inventoryClient.releaseInventory(ReleaseInventoryRequest(orderId))
         }
     }
