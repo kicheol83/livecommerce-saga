@@ -38,18 +38,32 @@ docker compose up -d postgres-order postgres-payment postgres-inventory kafka
 docker compose up --build
 ```
 
-## Avtomatlashtirilgan integratsion test
+## Avtomatlashtirilgan testlar
 
-`integration-test` moduli, `docker compose up`(yoki alohida `bootRun`) orqali **allaqachon ishlab turgan** stackka real HTTP so'rovlar yuborib, baxtli yo'l va compensation yo'lini avtomatik tekshiradi, va outbox jadvallarini to'g'ridan-to'g'ri bazadan tasdiqlaydi. Avval stackni ko'taring, so'ng testni ishga tushiring:
+Testlar ishlab turgan stackka real HTTP so'rovlar yuboradi va natijani to'g'ridan-to'g'ri bazalardan tekshiradi. Har bir testdan oldin demo stok 100 taga tiklanadi.
 
 ```powershell
 .\gradlew assemble
-docker compose up -d postgres-order postgres-payment postgres-inventory kafka
+docker compose up -d postgres-order postgres-payment postgres-inventory kafka jaeger
 & "$env:JAVA_HOME\bin\java.exe" -jar order-service\build\libs\order-service-0.1.0.jar
 & "$env:JAVA_HOME\bin\java.exe" -jar payment-service\build\libs\payment-service-0.1.0.jar
 & "$env:JAVA_HOME\bin\java.exe" -jar inventory-service\build\libs\inventory-service-0.1.0.jar
 .\gradlew :integration-test:test
+.\gradlew :integration-test:chaosTest
 ```
+
+`test` baxtli yo'l, stok yetishmaganda compensation va takroriy so'rovlarga idempotentlikni tekshiradi. `chaosTest` esa Kafka va bazalarni haqiqatan to'xtatib, qayta ishga tushiradi (bir necha daqiqa davom etadi).
+
+## Nima buziladi va qanday tiklanadi
+
+| Nosozlik | Tizimning xatti-harakati | Isbot |
+| --- | --- | --- |
+| Kafka ishlamay qoladi | Outbox relay hodisani faqat broker tasdiqlagandan keyin `PUBLISHED` deb belgilaydi; ungacha hodisa `PENDING` holatida qoladi va qayta yuboriladi, urinishlar soni va oxirgi xato saqlanadi | `chaosTest`: Kafka to'xtatilgan paytda yaratilgan buyurtma u qaytgach `COMPLETED` bo'ladi |
+| Payment bazasi vaqtincha yo'q | Tashqi chaqiruvlarda timeout bor; buyurtma `AWAITING_PAYMENT` holatida qoladi va recovery scheduler bosqichni qayta yuboradi | `chaosTest`: baza qaytgach buyurtma `COMPLETED` bo'ladi |
+| Inventory javob bermaydi | 3 marta qayta urinishdan so'ng buyurtma `COMPENSATING` holatiga o'tadi, to'lov bekor qilinadi, buyurtma `CANCELLED` bo'ladi | `chaosTest`: `inventory step timed out` sababi bilan bekor qilinadi |
+| Bir xil xabar ikki marta keladi | Har bir holat o'tishi faqat kutilgan holatdan ruxsat etiladi (`@Version` bilan himoyalangan), payment va inventory `order_id` bo'yicha idempotent | `IdempotencyTest` |
+| Bekor qilingandan keyin kech javob keladi | Bekor qilingan buyurtma uchun kelgan `PaymentReserved` to'lovni bekor qiladi, `InventoryReserved` esa zaxirani qaytaradi | Orkestrator mantiqi |
+| Ikkita parallel release | Reservation qatori `SELECT ... FOR UPDATE` bilan qulflanadi, stok ikki marta qaytarilmaydi | `IdempotencyTest` |
 
 ## Distributed tracing
 
@@ -73,8 +87,4 @@ Buyurtma holatini real vaqtda kuzatish uchun WebSocket'ga ulaning: `ws://localho
 
 ## Loyihaning holati
 
-Saga + Outbox oqimi qo'lda tekshirilgan va tasdiqlangan: happy path (to'lov va ombor muvaffaqiyatli, order `COMPLETED`ga yetadi) va compensation path (ombor yetarli bo'lmasa, to'lov avtomatik bekor qilinib, order `CANCELLED`ga aniq sabab bilan tushadi) — ikkalasi ham real Postgres + Kafka bilan sinaldi. Keyingi bosqichlar: Testcontainers bilan avtomatlashtirilgan integratsion testlar, k6 yuklama testi, distributed tracing, frontend.
-
-## Muhim eslatma
-
-Ushbu kod bu muhitda tarmoq cheklovlari sababli (Maven Central'ga kirish yo'q) build qilib ko'rilmadi — kodni birinchi marta o'zingizning mashinangizda `./gradlew build` bilan tekshiring.
+Saga + Outbox oqimi, idempotentlik, timeout asosidagi tiklanish, distributed tracing va chaos testlari tayyor. Keyingi bosqichlar: frontend (live efir ekrani va Saga holat paneli), k6 yuklama testi.
