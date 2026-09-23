@@ -58,6 +58,12 @@ class SagaTestClient {
         return objectMapper.readTree(response.body())
     }
 
+    fun getJson(url: String): JsonNode {
+        val response = send(HttpRequest.newBuilder().uri(URI.create(url)).GET().build())
+        assertThat(response.statusCode()).isEqualTo(200)
+        return objectMapper.readTree(response.body())
+    }
+
     fun orderStatus(orderId: String): String {
         return fetchOrder(orderId).get("status").asText()
     }
@@ -186,6 +192,7 @@ class SagaTestClient {
         const val ORDER_SERVICE_URL = "http://localhost:8081"
         const val PAYMENT_SERVICE_URL = "http://localhost:8082"
         const val INVENTORY_SERVICE_URL = "http://localhost:8083"
+        const val LIVE_SERVICE_URL = "http://localhost:8084"
         const val DEMO_STOCK = 100
         val DEMO_PRODUCT_ID: UUID = UUID.fromString("11111111-1111-1111-1111-111111111111")
         val TERMINAL_STATUSES = setOf("COMPLETED", "CANCELLED")
