@@ -68,11 +68,9 @@ services:
       - livecommerce_network
 
   jaeger:
-    image: jaegertracing/all-in-one:1.62
+    image: cr.jaegertracing.io/jaegertracing/jaeger:2.15.0
     container_name: jaeger
     restart: unless-stopped
-    environment:
-      COLLECTOR_OTLP_ENABLED: "true"
     ports:
       - "16686:16686"
       - "4318:4318"
