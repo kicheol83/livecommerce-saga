@@ -6,9 +6,11 @@ object EventType {
     const val PAYMENT_CANCELLED = "PaymentCancelled"
     const val INVENTORY_RESERVED = "InventoryReserved"
     const val INVENTORY_FAILED = "InventoryFailed"
+    const val STOCK_CHANGED = "StockChanged"
 }
 
 object KafkaTopics {
     const val PAYMENT_EVENTS = "payment-events"
     const val INVENTORY_EVENTS = "inventory-events"
+    const val STOCK_EVENTS = "stock-events"
 }
