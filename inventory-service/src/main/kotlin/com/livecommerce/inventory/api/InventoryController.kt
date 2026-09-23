@@ -1,20 +1,30 @@
 package com.livecommerce.inventory.api
 
+import com.livecommerce.inventory.api.dto.ProductStockResponse
 import com.livecommerce.inventory.api.dto.ReleaseInventoryRequest
 import com.livecommerce.inventory.api.dto.ReserveInventoryRequest
 import com.livecommerce.inventory.service.InventoryService
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
+import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
+import java.util.UUID
 
 @RestController
 @RequestMapping("/api/inventory")
 class InventoryController(
     private val inventoryService: InventoryService
 ) {
+
+    @GetMapping("/products/{productId}")
+    fun stock(@PathVariable productId: UUID): ResponseEntity<ProductStockResponse> {
+        val quantity = inventoryService.findStock(productId) ?: return ResponseEntity.notFound().build()
+        return ResponseEntity.ok(ProductStockResponse(productId, quantity))
+    }
 
     @PostMapping("/reserve")
     fun reserve(@RequestBody request: ReserveInventoryRequest): ResponseEntity<Void> {

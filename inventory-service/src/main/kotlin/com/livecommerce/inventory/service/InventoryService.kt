@@ -4,6 +4,7 @@ import com.livecommerce.common.events.EventType
 import com.livecommerce.common.events.InventoryFailedEvent
 import com.livecommerce.common.events.InventoryReservedEvent
 import com.livecommerce.common.events.KafkaTopics
+import com.livecommerce.common.events.StockChangedEvent
 import com.livecommerce.inventory.domain.InventoryReservation
 import com.livecommerce.inventory.domain.InventoryReservationRepository
 import com.livecommerce.inventory.domain.ProductStockRepository
@@ -49,6 +50,7 @@ class InventoryService(
             KafkaTopics.INVENTORY_EVENTS,
             InventoryReservedEvent(orderId, reservation.id, productId, quantity)
         )
+        publishStockChanged(stock.productId, stock.quantityAvailable)
     }
 
     @Transactional
@@ -60,5 +62,20 @@ class InventoryService(
         val stock = productStockRepository.findByIdForUpdate(reservation.productId) ?: return
         stock.release(reservation.quantity)
         reservation.released = true
+        publishStockChanged(stock.productId, stock.quantityAvailable)
+    }
+
+    @Transactional(readOnly = true)
+    fun findStock(productId: UUID): Int? {
+        return productStockRepository.findById(productId).map { it.quantityAvailable }.orElse(null)
+    }
+
+    private fun publishStockChanged(productId: UUID, quantityAvailable: Int) {
+        outboxWriter.write(
+            productId,
+            EventType.STOCK_CHANGED,
+            KafkaTopics.STOCK_EVENTS,
+            StockChangedEvent(productId, quantityAvailable)
+        )
     }
 }
