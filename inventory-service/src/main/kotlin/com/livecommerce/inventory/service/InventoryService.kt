@@ -53,7 +53,7 @@ class InventoryService(
 
     @Transactional
     fun release(orderId: UUID) {
-        val reservation = inventoryReservationRepository.findByOrderId(orderId) ?: return
+        val reservation = inventoryReservationRepository.findByOrderIdForUpdate(orderId) ?: return
         if (reservation.released) {
             return
         }
