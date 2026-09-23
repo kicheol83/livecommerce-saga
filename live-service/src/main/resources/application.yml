@@ -1,0 +1,36 @@
+server:
+  port: 8084
+
+spring:
+  application:
+    name: live-service
+  kafka:
+    bootstrap-servers: localhost:9094
+    consumer:
+      group-id: live-service
+      auto-offset-reset: latest
+    listener:
+      observation-enabled: true
+
+live:
+  session:
+    id: live-001
+    title: 겨울 니트 세트 라이브 특가
+    host-name: 민지
+    product-id: 11111111-1111-1111-1111-111111111111
+    product-name: 겨울 니트 세트
+    price: 39000
+    original-price: 59000
+    duration-minutes: 30
+
+services:
+  inventory:
+    base-url: http://localhost:8083
+
+management:
+  tracing:
+    sampling:
+      probability: 1.0
+  otlp:
+    tracing:
+      endpoint: http://localhost:4318/v1/traces
