@@ -23,4 +23,8 @@ class ProductStock(
         quantityAvailable -= quantity
         return true
     }
+
+    fun release(quantity: Int) {
+        quantityAvailable += quantity
+    }
 }

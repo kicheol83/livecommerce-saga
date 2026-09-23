@@ -1,0 +1,1 @@
+ALTER TABLE inventory_reservations ADD COLUMN released BOOLEAN NOT NULL DEFAULT FALSE;

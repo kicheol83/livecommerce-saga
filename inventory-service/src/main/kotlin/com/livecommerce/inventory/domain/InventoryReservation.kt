@@ -23,6 +23,9 @@ class InventoryReservation(
     @Column(nullable = false)
     val quantity: Int,
 
+    @Column(nullable = false)
+    var released: Boolean = false,
+
     @Column(name = "created_at", nullable = false, updatable = false)
     val createdAt: Instant = Instant.now()
 )

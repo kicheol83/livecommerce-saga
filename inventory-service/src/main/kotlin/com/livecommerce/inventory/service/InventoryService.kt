@@ -50,4 +50,15 @@ class InventoryService(
             InventoryReservedEvent(orderId, reservation.id, productId, quantity)
         )
     }
+
+    @Transactional
+    fun release(orderId: UUID) {
+        val reservation = inventoryReservationRepository.findByOrderId(orderId) ?: return
+        if (reservation.released) {
+            return
+        }
+        val stock = productStockRepository.findByIdForUpdate(reservation.productId) ?: return
+        stock.release(reservation.quantity)
+        reservation.released = true
+    }
 }
