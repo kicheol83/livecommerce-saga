@@ -41,6 +41,12 @@ class OutboxEventEntity(
     @Column(nullable = false)
     var status: OutboxStatus = OutboxStatus.PENDING,
 
+    @Column(nullable = false)
+    var attempts: Int = 0,
+
+    @Column(name = "last_error")
+    var lastError: String? = null,
+
     @Column(name = "created_at", nullable = false, updatable = false)
     val createdAt: Instant = Instant.now()
 )
