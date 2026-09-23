@@ -36,6 +36,9 @@ class Order(
     @Column(name = "failure_reason")
     var failureReason: String? = null,
 
+    @Column(name = "retry_count", nullable = false)
+    var retryCount: Int = 0,
+
     @Version
     var version: Long = 0,
 
@@ -52,6 +55,7 @@ class Order(
 
     fun markAwaitingInventory() {
         status = OrderStatus.AWAITING_INVENTORY
+        retryCount = 0
         touch()
     }
 
@@ -63,12 +67,18 @@ class Order(
     fun markCompensating(reason: String) {
         status = OrderStatus.COMPENSATING
         failureReason = reason
+        retryCount = 0
         touch()
     }
 
     fun markCancelled(reason: String) {
         status = OrderStatus.CANCELLED
         failureReason = reason
+        touch()
+    }
+
+    fun recordRetry() {
+        retryCount += 1
         touch()
     }
 
