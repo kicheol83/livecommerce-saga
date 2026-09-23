@@ -8,6 +8,8 @@ import org.springframework.context.annotation.Configuration
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory
 import org.springframework.kafka.core.ConsumerFactory
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory
+import org.springframework.kafka.listener.DefaultErrorHandler
+import org.springframework.util.backoff.FixedBackOff
 
 @Configuration
 class KafkaConsumerConfig(
@@ -31,6 +33,12 @@ class KafkaConsumerConfig(
         val factory = ConcurrentKafkaListenerContainerFactory<String, String>()
         factory.consumerFactory = consumerFactory()
         factory.containerProperties.isObservationEnabled = true
+        factory.setCommonErrorHandler(DefaultErrorHandler(FixedBackOff(LISTENER_RETRY_INTERVAL_MS, LISTENER_MAX_RETRIES)))
         return factory
+    }
+
+    companion object {
+        private const val LISTENER_RETRY_INTERVAL_MS = 2000L
+        private const val LISTENER_MAX_RETRIES = 10L
     }
 }
