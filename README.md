@@ -82,6 +82,27 @@ Stok har o'zgarganda (band qilish yoki qaytarish) inventory `StockChanged` hodis
 
 Cheklov: chat tarixi va tomoshabinlar soni xotirada saqlanadi, shuning uchun live-service hozircha bitta instansiyada ishlaydi. Gorizontal masshtablash uchun ularni Redis'ga o'tkazish va har bir instansiyaga alohida Kafka consumer group berish kerak bo'ladi.
 
+## Frontend
+
+`frontend/` — Next.js 14 (App Router), TypeScript va Tailwind asosidagi mobile-first live efir ekrani. Interfeys koreys tilida.
+
+```powershell
+cd frontend
+npm install
+npm run dev
+```
+
+Brauzerda http://localhost:3000 ni oching. Node.js 18.17+ kerak, backend servislari (order, payment, inventory, live) ham ishlab turishi kerak. Manzillarni o'zgartirish uchun `.env.example`ni `.env.local` nomi bilan nusxalang.
+
+Aloqa tuzilishi: REST so'rovlar Next.js rewrites orqali proxy qilinadi, shuning uchun brauzerda CORS muammosi bo'lmaydi. Real vaqt kanallari to'g'ridan-to'g'ri ulanadi: chat, stok va tomoshabinlar soni uchun live-service'ga STOMP, buyurtma holati uchun order-service'ga WebSocket. Ikkala ulanish ham uzilganda exponential backoff bilan qayta ulanadi. Buyurtma holati uchun WebSocket'ga qo'shimcha ravishda har 3 soniyada zaxira so'rov yuboriladi, shuning uchun ulanish yo'qolsa ham natija ko'rinadi. Holatlar faqat oldinga siljiydi: kech kelgan eski xabar ekrandagi holatni orqaga qaytarmaydi.
+
+Dizayn qarorlari:
+
+- Stok paneli oddiy progress bar emas, ikki qator trikotaj ko'zlaridan iborat. Sotilgan sari ko'zlar "so'kiladi", stok 20% dan kamayganda rangi o'zgaradi va "마감 임박" yozuvi chiqadi.
+- Saga bosqichlari foydalanuvchiga ochiq ko'rsatiladi: 주문 접수 → 결제 승인 → 재고 확보 → 주문 완료. Muvaffaqiyatsiz bo'lsa, qaysi bosqichda to'xtagani va to'lov avtomatik qaytarilgani tushuntiriladi.
+- Shrift sifatida Pretendard ishlatilgan, koreys matni so'z o'rtasidan bo'linmasligi uchun `word-break: keep-all` qo'llangan. Harakatni kamaytirish sozlamasi (`prefers-reduced-motion`) hurmat qilinadi, jonli yangilanishlar ekran o'quvchilar uchun `aria-live` orqali e'lon qilinadi.
+- Video oqimining o'zi (RTMP/HLS) loyiha doirasidan tashqarida. Efir sahnasi simulyatsiya qilinadi. `NEXT_PUBLIC_LIVE_VIDEO_URL` berilsa, o'sha video ko'rsatiladi.
+
 ## Distributed tracing
 
 Uchala servis Micrometer Tracing (OpenTelemetry bridge) orqali span'larni OTLP bilan Jaeger'ga yuboradi. REST chaqiruvlari va Kafka listener'lari avtomatik instrumentlangan. Outbox relay alohida `@Scheduled` oqimda ishlagani uchun trace konteksti odatda shu yerda uzilib qoladi. Buning oldini olish uchun har bir outbox yozuvi W3C `traceparent` qiymatini o'zi bilan saqlaydi, relay esa uni Kafka header'iga qayta qo'yadi. Natijada bitta buyurtma Order → Payment → Kafka → Order → Inventory → Kafka → Order zanjiri bo'ylab Jaeger'da bitta uzluksiz trace bo'lib ko'rinadi.
@@ -104,4 +125,4 @@ Buyurtma holatini real vaqtda kuzatish uchun WebSocket'ga ulaning: `ws://localho
 
 ## Loyihaning holati
 
-Saga + Outbox oqimi, idempotentlik, timeout asosidagi tiklanish, distributed tracing, chaos testlari va live efir servisi tayyor. Keyingi bosqichlar: frontend (live efir ekrani va Saga holat paneli), k6 yuklama testi.
+Saga + Outbox oqimi, idempotentlik, timeout asosidagi tiklanish, distributed tracing, chaos testlari, live efir servisi va frontend tayyor. Keyingi bosqich: k6 yuklama testi.
