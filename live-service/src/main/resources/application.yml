@@ -26,6 +26,8 @@ live:
 services:
   inventory:
     base-url: http://localhost:8083
+  auth:
+    jwk-set-uri: http://localhost:8085/.well-known/jwks.json
 
 management:
   tracing:
