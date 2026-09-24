@@ -1,0 +1,52 @@
+server:
+  port: 8080
+
+services:
+  auth:
+    url: http://localhost:8085
+  order:
+    url: http://localhost:8081
+    ws-url: ws://localhost:8081
+  live:
+    url: http://localhost:8084
+    ws-url: ws://localhost:8084
+
+spring:
+  application:
+    name: api-gateway
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${services.auth.url}/.well-known/jwks.json
+  cloud:
+    gateway:
+      routes:
+        - id: auth
+          uri: ${services.auth.url}
+          predicates:
+            - Path=/api/auth/**
+        - id: orders
+          uri: ${services.order.url}
+          predicates:
+            - Path=/api/orders/**
+        - id: live
+          uri: ${services.live.url}
+          predicates:
+            - Path=/api/live/**
+        - id: order-socket
+          uri: ${services.order.ws-url}
+          predicates:
+            - Path=/ws/orders/**
+        - id: live-socket
+          uri: ${services.live.ws-url}
+          predicates:
+            - Path=/ws/live/**
+
+management:
+  tracing:
+    sampling:
+      probability: 1.0
+  otlp:
+    tracing:
+      endpoint: http://localhost:4318/v1/traces
