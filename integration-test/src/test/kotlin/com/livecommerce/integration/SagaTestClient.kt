@@ -35,12 +35,13 @@ class SagaTestClient {
 
     fun createOrder(quantity: Int, amount: String = "39000"): String {
         val body = """
-            {"memberId":"${UUID.randomUUID()}","productId":"$DEMO_PRODUCT_ID","quantity":$quantity,"amount":$amount}
+            {"productId":"$DEMO_PRODUCT_ID","quantity":$quantity,"amount":$amount}
         """.trimIndent()
         val response = send(
             HttpRequest.newBuilder()
                 .uri(URI.create("$ORDER_SERVICE_URL/api/orders"))
                 .header("Content-Type", "application/json")
+                .header(USER_ID_HEADER, TEST_USER_ID)
                 .POST(HttpRequest.BodyPublishers.ofString(body))
                 .build()
         )
@@ -52,6 +53,7 @@ class SagaTestClient {
         val response = send(
             HttpRequest.newBuilder()
                 .uri(URI.create("$ORDER_SERVICE_URL/api/orders/$orderId"))
+                .header(USER_ID_HEADER, TEST_USER_ID)
                 .GET()
                 .build()
         )
@@ -193,6 +195,9 @@ class SagaTestClient {
         const val PAYMENT_SERVICE_URL = "http://localhost:8082"
         const val INVENTORY_SERVICE_URL = "http://localhost:8083"
         const val LIVE_SERVICE_URL = "http://localhost:8084"
+        const val GATEWAY_URL = "http://localhost:8080"
+        const val USER_ID_HEADER = "X-User-Id"
+        val TEST_USER_ID: String = UUID.randomUUID().toString()
         const val DEMO_STOCK = 100
         val DEMO_PRODUCT_ID: UUID = UUID.fromString("11111111-1111-1111-1111-111111111111")
         val TERMINAL_STATUSES = setOf("COMPLETED", "CANCELLED")
