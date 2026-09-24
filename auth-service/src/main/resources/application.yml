@@ -1,0 +1,36 @@
+server:
+  port: 8085
+
+spring:
+  application:
+    name: auth-service
+  datasource:
+    url: jdbc:postgresql://localhost:5458/auth_db
+    username: auth_user
+    password: auth_pass
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+    locations: classpath:db/migration/auth
+
+auth:
+  issuer: livecommerce-auth
+  access-token-ttl: 15m
+  refresh-token-ttl: 14d
+  refresh-cookie-name: lc_refresh
+  refresh-cookie-secure: false
+  admin:
+    email: admin@livecommerce.local
+    password: admin1234!
+    nickname: 운영자
+
+management:
+  tracing:
+    sampling:
+      probability: 1.0
+  otlp:
+    tracing:
+      endpoint: http://localhost:4318/v1/traces
