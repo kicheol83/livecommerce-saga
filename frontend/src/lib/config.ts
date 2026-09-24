@@ -1,5 +1,5 @@
-export const LIVE_SOCKET_URL = process.env.NEXT_PUBLIC_LIVE_SOCKET_URL ?? "ws://localhost:8084/ws/live";
-export const ORDER_SOCKET_URL = process.env.NEXT_PUBLIC_ORDER_SOCKET_URL ?? "ws://localhost:8081/ws/orders";
+export const LIVE_SOCKET_URL = process.env.NEXT_PUBLIC_LIVE_SOCKET_URL ?? "ws://localhost:8080/ws/live";
+export const ORDER_SOCKET_URL = process.env.NEXT_PUBLIC_ORDER_SOCKET_URL ?? "ws://localhost:8080/ws/orders";
 export const LIVE_VIDEO_URL = process.env.NEXT_PUBLIC_LIVE_VIDEO_URL ?? "";
 
 export const LIVE_TOPICS = {
