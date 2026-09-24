@@ -1,14 +1,17 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useAuth } from "@/hooks/useAuth";
 import { useCountdown } from "@/hooks/useCountdown";
-import { useIdentity } from "@/hooks/useIdentity";
 import { useLiveChannel } from "@/hooks/useLiveChannel";
 import { useOrderTracker } from "@/hooks/useOrderTracker";
 import { createOrder, fetchChatHistory, fetchSession } from "@/lib/api";
+import { logout } from "@/lib/authStore";
 import { MAX_ORDER_QUANTITY } from "@/lib/config";
 import type { ChatMessage, LiveSession, OrderSnapshot, StockChanged } from "@/lib/types";
 import { ChatComposer } from "./ChatComposer";
+import { AccountMenu } from "./AccountMenu";
 import { ChatFeed } from "./ChatFeed";
 import { LiveHeader } from "./LiveHeader";
 import { LiveStage } from "./LiveStage";
@@ -23,7 +26,8 @@ const CHAT_HISTORY_LIMIT = 50;
 const TOAST_DURATION_MS = 3500;
 
 export function LiveRoom() {
-  const identity = useIdentity();
+  const router = useRouter();
+  const auth = useAuth();
   const [session, setSession] = useState<LiveSession | null>(null);
   const [loadState, setLoadState] = useState<LoadState>("loading");
   const [stock, setStock] = useState<number | null>(null);
@@ -94,7 +98,7 @@ export function LiveRoom() {
     [applyStock]
   );
 
-  const channel = useLiveChannel(handlers);
+  const channel = useLiveChannel(handlers, auth.user?.userId ?? null);
   const remaining = useCountdown(session?.endsAt ?? null, () => {
     void loadSession();
   });
@@ -107,7 +111,11 @@ export function LiveRoom() {
   }, [maxQuantity]);
 
   const handleBuy = useCallback(async () => {
-    if (session === null || identity === null || orderPhase !== "idle") {
+    if (session === null || orderPhase !== "idle" || auth.status === "loading") {
+      return;
+    }
+    if (auth.status !== "authenticated") {
+      router.push("/login?next=/");
       return;
     }
     setOrderedQuantity(quantity);
@@ -115,7 +123,6 @@ export function LiveRoom() {
     setOrderPhase("submitting");
     try {
       const order = await createOrder({
-        memberId: identity.memberId,
         productId: session.productId,
         quantity,
         amount: session.price * quantity
@@ -126,26 +133,30 @@ export function LiveRoom() {
       setOrderPhase("idle");
       setToast("주문을 접수하지 못했어요. 잠시 후 다시 시도해 주세요.");
     }
-  }, [identity, orderPhase, quantity, session]);
+  }, [auth.status, orderPhase, quantity, router, session]);
 
   const handleCloseSheet = useCallback(() => {
     setOrderPhase("idle");
     setCreatedOrder(null);
   }, []);
 
+  const { sendChat } = channel;
   const handleSendChat = useCallback(
     (text: string) => {
-      if (identity === null) {
-        return false;
-      }
-      const sent = channel.sendChat(identity.nickname, text);
+      const sent = sendChat(text);
       if (!sent) {
         setToast("채팅 연결이 끊겨 보내지 못했어요.");
       }
       return sent;
     },
-    [channel, identity]
+    [sendChat]
   );
+
+  const handleLogout = useCallback(() => {
+    void logout().then(() => setToast("로그아웃했어요."));
+  }, []);
+
+  const chatMode = auth.status !== "authenticated" ? "guest" : channel.state === "open" ? "ready" : "connecting";
 
   const handleRetry = useCallback(() => {
     setLoadState("loading");
@@ -162,10 +173,15 @@ export function LiveRoom() {
             <ConnectionNotice state={channel.state} />
             <section className="relative min-h-0 flex-1" aria-label="라이브 방송">
               <LiveStage hostName={session.hostName} />
-              <LiveHeader hostName={session.hostName} title={session.title} viewers={viewers} />
+              <LiveHeader
+                hostName={session.hostName}
+                title={session.title}
+                viewers={viewers}
+                account={<AccountMenu auth={auth} onLogout={handleLogout} />}
+              />
               <div className="absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-black/50 to-transparent px-4 pb-3 pt-10">
-                <ChatFeed messages={messages} nickname={identity?.nickname ?? null} />
-                <ChatComposer connected={channel.state === "open"} onSend={handleSendChat} />
+                <ChatFeed messages={messages} nickname={auth.user?.nickname ?? null} />
+                <ChatComposer mode={chatMode} onSend={handleSendChat} />
               </div>
             </section>
             <ProductPanel
@@ -178,7 +194,8 @@ export function LiveRoom() {
               remaining={remaining}
               quantity={quantity}
               maxQuantity={maxQuantity}
-              busy={orderPhase !== "idle" || identity === null}
+              busy={orderPhase !== "idle" || auth.status === "loading"}
+              requiresLogin={auth.status === "anonymous"}
               onQuantityChange={setQuantity}
               onBuy={() => {
                 void handleBuy();

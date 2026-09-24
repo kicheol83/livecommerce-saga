@@ -1,12 +1,14 @@
+import type { ReactNode } from "react";
 import { EyeIcon } from "./Icons";
 
 type LiveHeaderProps = {
   hostName: string;
   title: string;
   viewers: number;
+  account: ReactNode;
 };
 
-export function LiveHeader({ hostName, title, viewers }: LiveHeaderProps) {
+export function LiveHeader({ hostName, title, viewers, account }: LiveHeaderProps) {
   return (
     <header className="absolute inset-x-0 top-0 z-10 flex items-center gap-2.5 bg-gradient-to-b from-black/60 to-transparent px-4 pb-10 pt-[calc(14px+env(safe-area-inset-top))] text-white">
       <div
@@ -27,6 +29,7 @@ export function LiveHeader({ hostName, title, viewers }: LiveHeaderProps) {
         <EyeIcon className="h-3.5 w-3.5" />
         {viewers}
       </span>
+      {account}
     </header>
   );
 }

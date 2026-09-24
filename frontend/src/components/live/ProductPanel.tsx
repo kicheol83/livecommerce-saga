@@ -14,6 +14,7 @@ type ProductPanelProps = {
   quantity: number;
   maxQuantity: number;
   busy: boolean;
+  requiresLogin: boolean;
   onQuantityChange: (value: number) => void;
   onBuy: () => void;
 };
@@ -31,13 +32,20 @@ export function ProductPanel({
   quantity,
   maxQuantity,
   busy,
+  requiresLogin,
   onQuantityChange,
   onBuy
 }: ProductPanelProps) {
   const rate = discountRate(price, originalPrice);
   const soldOut = stock === 0;
   const lowStock = stock !== null && stock > 0 && capacity > 0 && stock / capacity <= LOW_STOCK_RATIO;
-  const buyLabel = soldOut ? "품절" : busy ? "주문 처리 중" : `${formatWon(price * quantity)} 구매하기`;
+  const buyLabel = soldOut
+    ? "품절"
+    : busy
+      ? "주문 처리 중"
+      : requiresLogin
+        ? "로그인하고 구매하기"
+        : `${formatWon(price * quantity)} 구매하기`;
 
   return (
     <section

@@ -1,15 +1,29 @@
 "use client";
 
+import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import { CHAT_MAX_LENGTH } from "@/lib/config";
 
 type ChatComposerProps = {
-  connected: boolean;
+  mode: "ready" | "connecting" | "guest";
   onSend: (text: string) => boolean;
 };
 
-export function ChatComposer({ connected, onSend }: ChatComposerProps) {
+export function ChatComposer({ mode, onSend }: ChatComposerProps) {
   const [text, setText] = useState("");
+
+  if (mode === "guest") {
+    return (
+      <Link
+        href="/login?next=/"
+        className="mt-2 flex h-10 items-center rounded-full bg-black/40 px-4 text-[14px] text-white/85 backdrop-blur-sm hover:bg-black/50"
+      >
+        로그인하고 채팅에 참여하세요
+      </Link>
+    );
+  }
+
+  const connected = mode === "ready";
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
