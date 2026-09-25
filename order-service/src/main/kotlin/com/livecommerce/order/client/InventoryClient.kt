@@ -11,7 +11,7 @@ data class ReserveInventoryRequest(
     val quantity: Int
 )
 
-data class ReleaseInventoryRequest(
+data class OrderInventoryRequest(
     val orderId: UUID
 )
 
@@ -26,19 +26,21 @@ class InventoryClient(
         .build()
 
     fun reserveInventory(request: ReserveInventoryRequest) {
-        client.post()
-            .uri("/api/inventory/reserve")
-            .header("Idempotency-Key", request.orderId.toString())
-            .body(request)
-            .retrieve()
-            .toBodilessEntity()
+        post("/api/inventory/reserve", request)
     }
 
-    fun releaseInventory(request: ReleaseInventoryRequest) {
+    fun confirmInventory(orderId: UUID) {
+        post("/api/inventory/confirm", OrderInventoryRequest(orderId))
+    }
+
+    fun releaseInventory(orderId: UUID) {
+        post("/api/inventory/release", OrderInventoryRequest(orderId))
+    }
+
+    private fun post(path: String, body: Any) {
         client.post()
-            .uri("/api/inventory/release")
-            .header("Idempotency-Key", request.orderId.toString())
-            .body(request)
+            .uri(path)
+            .body(body)
             .retrieve()
             .toBodilessEntity()
     }

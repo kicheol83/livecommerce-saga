@@ -9,4 +9,9 @@ interface OrderRepository : JpaRepository<Order, UUID> {
         statuses: Collection<OrderStatus>,
         threshold: Instant
     ): List<Order>
+
+    fun findTop50ByStatusAndPaymentDeadlineBeforeOrderByPaymentDeadlineAsc(
+        status: OrderStatus,
+        now: Instant
+    ): List<Order>
 }

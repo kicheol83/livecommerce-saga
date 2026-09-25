@@ -19,6 +19,7 @@ spring:
     bootstrap-servers: localhost:9094
 
 saga:
+  payment-window-seconds: 300
   step-timeout-seconds: 20
   max-step-retries: 3
   recovery-interval-ms: 5000

@@ -4,8 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.livecommerce.common.events.EventType
 import com.livecommerce.common.events.KafkaTopics
 import com.livecommerce.common.events.PaymentCancelledEvent
+import com.livecommerce.common.events.PaymentConfirmedEvent
 import com.livecommerce.common.events.PaymentFailedEvent
-import com.livecommerce.common.events.PaymentReservedEvent
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.springframework.kafka.annotation.KafkaListener
 import org.springframework.stereotype.Component
@@ -20,9 +20,9 @@ class PaymentEventConsumer(
     fun onMessage(record: ConsumerRecord<String, String>) {
         val eventType = record.headers().lastHeader("eventType")?.value()?.let { String(it, Charsets.UTF_8) }
         when (eventType) {
-            EventType.PAYMENT_RESERVED -> {
-                val event = objectMapper.readValue(record.value(), PaymentReservedEvent::class.java)
-                orchestrator.onPaymentReserved(event.orderId)
+            EventType.PAYMENT_CONFIRMED -> {
+                val event = objectMapper.readValue(record.value(), PaymentConfirmedEvent::class.java)
+                orchestrator.onPaymentConfirmed(event.orderId)
             }
             EventType.PAYMENT_FAILED -> {
                 val event = objectMapper.readValue(record.value(), PaymentFailedEvent::class.java)

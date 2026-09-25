@@ -26,12 +26,18 @@ class Order(
     @Column(nullable = false)
     val quantity: Int,
 
-    @Column(nullable = false)
-    val amount: BigDecimal,
-
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     var status: OrderStatus,
+
+    @Column
+    var amount: BigDecimal? = null,
+
+    @Column(name = "payment_key")
+    var paymentKey: String? = null,
+
+    @Column(name = "payment_deadline")
+    var paymentDeadline: Instant? = null,
 
     @Column(name = "failure_reason")
     var failureReason: String? = null,
@@ -48,41 +54,52 @@ class Order(
     @Column(name = "updated_at", nullable = false)
     var updatedAt: Instant = Instant.now()
 ) {
-    fun markPaymentConfirmed() {
-        status = OrderStatus.PAYMENT_CONFIRMED
-        touch()
+    fun markAwaitingPayment(amount: BigDecimal, deadline: Instant) {
+        status = OrderStatus.AWAITING_PAYMENT
+        this.amount = amount
+        paymentDeadline = deadline
+        step()
     }
 
-    fun markAwaitingInventory() {
-        status = OrderStatus.AWAITING_INVENTORY
-        retryCount = 0
-        touch()
+    fun markPaymentConfirming(paymentKey: String) {
+        status = OrderStatus.PAYMENT_CONFIRMING
+        this.paymentKey = paymentKey
+        step()
+    }
+
+    fun markConfirmingStock() {
+        status = OrderStatus.CONFIRMING_STOCK
+        step()
     }
 
     fun markCompleted() {
         status = OrderStatus.COMPLETED
-        touch()
+        step()
     }
 
     fun markCompensating(reason: String) {
         status = OrderStatus.COMPENSATING
         failureReason = reason
-        retryCount = 0
-        touch()
+        step()
     }
 
     fun markCancelled(reason: String) {
         status = OrderStatus.CANCELLED
         failureReason = reason
-        touch()
+        step()
     }
 
     fun recordRetry() {
         retryCount += 1
-        touch()
+        updatedAt = Instant.now()
     }
 
-    private fun touch() {
+    fun isPaymentWindowOpen(now: Instant): Boolean {
+        return paymentDeadline?.isAfter(now) == true
+    }
+
+    private fun step() {
+        retryCount = 0
         updatedAt = Instant.now()
     }
 }

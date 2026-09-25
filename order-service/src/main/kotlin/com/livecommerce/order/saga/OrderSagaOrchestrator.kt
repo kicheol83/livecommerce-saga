@@ -1,19 +1,21 @@
 package com.livecommerce.order.saga
 
 import com.livecommerce.order.client.CancelPaymentRequest
+import com.livecommerce.order.client.ConfirmPaymentRequest
 import com.livecommerce.order.client.InventoryClient
 import com.livecommerce.order.client.PaymentClient
-import com.livecommerce.order.client.ReleaseInventoryRequest
 import com.livecommerce.order.client.ReserveInventoryRequest
-import com.livecommerce.order.client.ReservePaymentRequest
 import com.livecommerce.order.domain.Order
 import com.livecommerce.order.domain.OrderRepository
 import com.livecommerce.order.domain.OrderStatus
 import com.livecommerce.order.ws.OrderStatusPublisher
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 import org.springframework.transaction.support.TransactionTemplate
 import java.math.BigDecimal
+import java.time.Duration
+import java.time.Instant
 import java.util.UUID
 
 @Component
@@ -22,80 +24,131 @@ class OrderSagaOrchestrator(
     private val paymentClient: PaymentClient,
     private val inventoryClient: InventoryClient,
     private val statusPublisher: OrderStatusPublisher,
-    private val transactionTemplate: TransactionTemplate
+    private val transactionTemplate: TransactionTemplate,
+    @Value("\${saga.payment-window-seconds:300}") paymentWindowSeconds: Long
 ) {
 
     private val log = LoggerFactory.getLogger(OrderSagaOrchestrator::class.java)
+    private val paymentWindow: Duration = Duration.ofSeconds(paymentWindowSeconds)
 
-    fun createOrder(memberId: UUID, productId: UUID, quantity: Int, amount: BigDecimal): Order {
+    fun createOrder(memberId: UUID, productId: UUID, quantity: Int): Order {
         val order = orderRepository.save(
             Order(
                 id = UUID.randomUUID(),
                 memberId = memberId,
                 productId = productId,
                 quantity = quantity,
-                amount = amount,
-                status = OrderStatus.AWAITING_PAYMENT
+                status = OrderStatus.AWAITING_STOCK
             )
         )
         statusPublisher.publish(order)
-        requestPayment(order)
+        requestStockHold(order)
         return order
     }
 
-    fun onPaymentReserved(orderId: UUID) {
-        val advanced = transition(orderId, setOf(OrderStatus.AWAITING_PAYMENT)) {
-            it.markPaymentConfirmed()
-            it.markAwaitingInventory()
+    fun onStockHeld(orderId: UUID, unitPrice: BigDecimal, holdExpiresAt: Instant) {
+        val payable = transition(orderId, setOf(OrderStatus.AWAITING_STOCK)) {
+            it.markAwaitingPayment(unitPrice.multiply(BigDecimal(it.quantity)), paymentDeadline(holdExpiresAt))
         }
-        if (advanced != null) {
-            statusPublisher.publish(advanced)
-            requestInventory(advanced)
+        if (payable != null) {
+            statusPublisher.publish(payable)
             return
         }
         if (currentStatus(orderId) == OrderStatus.CANCELLED) {
-            paymentClient.cancelPayment(CancelPaymentRequest(orderId))
+            inventoryClient.releaseInventory(orderId)
+        }
+    }
+
+    fun onStockUnavailable(orderId: UUID, reason: String) {
+        transition(orderId, setOf(OrderStatus.AWAITING_STOCK)) { it.markCancelled(reason) }
+            ?.let { statusPublisher.publish(it) }
+    }
+
+    fun submitPayment(orderId: UUID, memberId: UUID, paymentKey: String, amount: BigDecimal): PaymentSubmission {
+        val order = orderRepository.findById(orderId).orElse(null)
+        if (order == null || order.memberId != memberId) {
+            return PaymentSubmission.NotFound
+        }
+        if (order.status == OrderStatus.PAYMENT_CONFIRMING && order.paymentKey == paymentKey) {
+            return PaymentSubmission.Accepted(order)
+        }
+        if (order.status != OrderStatus.AWAITING_PAYMENT) {
+            return PaymentSubmission.NotPayable
+        }
+        val expected = order.amount
+        if (expected == null || expected.compareTo(amount) != 0) {
+            return PaymentSubmission.AmountMismatch
+        }
+        if (!order.isPaymentWindowOpen(Instant.now())) {
+            return PaymentSubmission.WindowExpired
+        }
+        val confirming = transition(orderId, setOf(OrderStatus.AWAITING_PAYMENT)) {
+            it.markPaymentConfirming(paymentKey)
+        } ?: return PaymentSubmission.NotPayable
+        statusPublisher.publish(confirming)
+        requestPaymentConfirmation(confirming)
+        return PaymentSubmission.Accepted(confirming)
+    }
+
+    fun cancelByBuyer(orderId: UUID, memberId: UUID): BuyerCancellation {
+        val order = orderRepository.findById(orderId).orElse(null)
+        if (order == null || order.memberId != memberId) {
+            return BuyerCancellation.NotFound
+        }
+        val cancelled = transition(orderId, BUYER_CANCELLABLE) { it.markCancelled(CANCELLED_BY_BUYER) }
+            ?: return BuyerCancellation.NotCancellable
+        statusPublisher.publish(cancelled)
+        requestStockRelease(cancelled)
+        return BuyerCancellation.Cancelled(cancelled)
+    }
+
+    fun onPaymentConfirmed(orderId: UUID) {
+        val confirmingStock = transition(orderId, setOf(OrderStatus.PAYMENT_CONFIRMING)) { it.markConfirmingStock() }
+        if (confirmingStock != null) {
+            statusPublisher.publish(confirmingStock)
+            requestStockConfirmation(confirmingStock)
+            return
+        }
+        if (currentStatus(orderId) == OrderStatus.CANCELLED) {
+            paymentClient.cancelPayment(CancelPaymentRequest(orderId, LATE_PAYMENT_REFUND))
         }
     }
 
     fun onPaymentFailed(orderId: UUID, reason: String) {
-        transition(orderId, setOf(OrderStatus.AWAITING_PAYMENT)) { it.markCancelled(reason) }
+        val cancelled = transition(orderId, setOf(OrderStatus.PAYMENT_CONFIRMING)) { it.markCancelled(reason) } ?: return
+        statusPublisher.publish(cancelled)
+        requestStockRelease(cancelled)
+    }
+
+    fun onStockConfirmed(orderId: UUID) {
+        transition(orderId, setOf(OrderStatus.CONFIRMING_STOCK)) { it.markCompleted() }
             ?.let { statusPublisher.publish(it) }
     }
 
-    fun onInventoryReserved(orderId: UUID) {
-        val completed = transition(orderId, setOf(OrderStatus.AWAITING_INVENTORY)) { it.markCompleted() }
-        if (completed != null) {
-            statusPublisher.publish(completed)
-            return
-        }
-        val status = currentStatus(orderId) ?: return
-        if (status in RELEASABLE_STATUSES) {
-            inventoryClient.releaseInventory(ReleaseInventoryRequest(orderId))
-        }
-    }
-
-    fun onInventoryFailed(orderId: UUID, reason: String) {
-        val compensating = transition(orderId, setOf(OrderStatus.AWAITING_INVENTORY)) {
-            it.markCompensating(reason)
-        } ?: return
+    fun onStockConfirmationFailed(orderId: UUID, reason: String) {
+        val compensating = transition(orderId, setOf(OrderStatus.CONFIRMING_STOCK)) { it.markCompensating(reason) } ?: return
         statusPublisher.publish(compensating)
         requestPaymentCancellation(compensating)
     }
 
     fun onPaymentCancelled(orderId: UUID) {
         transition(orderId, setOf(OrderStatus.COMPENSATING)) {
-            it.markCancelled(it.failureReason ?: COMPENSATED_REASON)
+            it.markCancelled(it.failureReason ?: COMPENSATED)
         }?.let { statusPublisher.publish(it) }
     }
 
     fun recover(orderId: UUID, maxRetries: Int) {
         val order = orderRepository.findById(orderId).orElse(null) ?: return
-        when {
-            order.status == OrderStatus.COMPENSATING -> retryStep(order.id, OrderStatus.COMPENSATING)
-            order.retryCount < maxRetries -> retryStep(order.id, order.status)
-            order.status == OrderStatus.AWAITING_PAYMENT -> timeOutPayment(order.id)
-            order.status == OrderStatus.AWAITING_INVENTORY -> timeOutInventory(order.id)
+        when (order.status) {
+            OrderStatus.AWAITING_STOCK ->
+                if (order.retryCount < maxRetries) retryStep(orderId, OrderStatus.AWAITING_STOCK) else timeOutStockHold(orderId)
+            OrderStatus.AWAITING_PAYMENT ->
+                if (!order.isPaymentWindowOpen(Instant.now())) expirePaymentWindow(orderId)
+            OrderStatus.PAYMENT_CONFIRMING,
+            OrderStatus.CONFIRMING_STOCK,
+            OrderStatus.COMPENSATING -> retryStep(orderId, order.status)
+            OrderStatus.COMPLETED,
+            OrderStatus.CANCELLED -> Unit
         }
     }
 
@@ -103,51 +156,61 @@ class OrderSagaOrchestrator(
         val retried = transition(orderId, setOf(expected)) { it.recordRetry() } ?: return
         log.info("Retrying saga step {} for order {} (retry {})", expected, orderId, retried.retryCount)
         when (expected) {
-            OrderStatus.AWAITING_PAYMENT -> requestPayment(retried)
-            OrderStatus.AWAITING_INVENTORY -> requestInventory(retried)
+            OrderStatus.AWAITING_STOCK -> requestStockHold(retried)
+            OrderStatus.PAYMENT_CONFIRMING -> requestPaymentConfirmation(retried)
+            OrderStatus.CONFIRMING_STOCK -> requestStockConfirmation(retried)
             OrderStatus.COMPENSATING -> requestPaymentCancellation(retried)
             else -> Unit
         }
     }
 
-    private fun timeOutPayment(orderId: UUID) {
-        val cancelled = transition(orderId, setOf(OrderStatus.AWAITING_PAYMENT)) {
-            it.markCancelled(PAYMENT_TIMEOUT_REASON)
+    private fun timeOutStockHold(orderId: UUID) {
+        val cancelled = transition(orderId, setOf(OrderStatus.AWAITING_STOCK)) {
+            it.markCancelled(INVENTORY_TIMEOUT)
         } ?: return
         statusPublisher.publish(cancelled)
-        requestPaymentCancellation(cancelled)
+        requestStockRelease(cancelled)
     }
 
-    private fun timeOutInventory(orderId: UUID) {
-        val compensating = transition(orderId, setOf(OrderStatus.AWAITING_INVENTORY)) {
-            it.markCompensating(INVENTORY_TIMEOUT_REASON)
+    private fun expirePaymentWindow(orderId: UUID) {
+        val cancelled = transition(orderId, setOf(OrderStatus.AWAITING_PAYMENT)) {
+            it.markCancelled(PAYMENT_WINDOW_EXPIRED)
         } ?: return
-        statusPublisher.publish(compensating)
-        requestInventoryRelease(compensating)
-        requestPaymentCancellation(compensating)
+        statusPublisher.publish(cancelled)
+        requestStockRelease(cancelled)
     }
 
-    private fun requestPayment(order: Order) {
-        attempt("reserve payment", order.id) {
-            paymentClient.reservePayment(ReservePaymentRequest(order.id, order.memberId, order.amount))
+    private fun paymentDeadline(holdExpiresAt: Instant): Instant {
+        val windowEnd = Instant.now().plus(paymentWindow)
+        val holdSafeEnd = holdExpiresAt.minus(HOLD_SAFETY_MARGIN)
+        return if (holdSafeEnd.isBefore(windowEnd)) holdSafeEnd else windowEnd
+    }
+
+    private fun requestStockHold(order: Order) {
+        attempt("hold stock", order.id) {
+            inventoryClient.reserveInventory(ReserveInventoryRequest(order.id, order.productId, order.quantity))
         }
     }
 
-    private fun requestInventory(order: Order) {
-        attempt("reserve inventory", order.id) {
-            inventoryClient.reserveInventory(ReserveInventoryRequest(order.id, order.productId, order.quantity))
+    private fun requestStockConfirmation(order: Order) {
+        attempt("confirm stock", order.id) { inventoryClient.confirmInventory(order.id) }
+    }
+
+    private fun requestStockRelease(order: Order) {
+        attempt("release stock", order.id) { inventoryClient.releaseInventory(order.id) }
+    }
+
+    private fun requestPaymentConfirmation(order: Order) {
+        val paymentKey = order.paymentKey ?: return
+        val amount = order.amount ?: return
+        attempt("confirm payment", order.id) {
+            paymentClient.confirmPayment(ConfirmPaymentRequest(order.id, order.memberId, paymentKey, amount))
         }
     }
 
     private fun requestPaymentCancellation(order: Order) {
         attempt("cancel payment", order.id) {
-            paymentClient.cancelPayment(CancelPaymentRequest(order.id))
-        }
-    }
-
-    private fun requestInventoryRelease(order: Order) {
-        attempt("release inventory", order.id) {
-            inventoryClient.releaseInventory(ReleaseInventoryRequest(order.id))
+            paymentClient.cancelPayment(CancelPaymentRequest(order.id, order.failureReason ?: COMPENSATED))
         }
     }
 
@@ -176,9 +239,12 @@ class OrderSagaOrchestrator(
     }
 
     companion object {
-        private val RELEASABLE_STATUSES = setOf(OrderStatus.COMPENSATING, OrderStatus.CANCELLED)
-        private const val COMPENSATED_REASON = "compensated"
-        private const val PAYMENT_TIMEOUT_REASON = "payment step timed out"
-        private const val INVENTORY_TIMEOUT_REASON = "inventory step timed out"
+        const val PAYMENT_WINDOW_EXPIRED = "payment window expired"
+        const val INVENTORY_TIMEOUT = "inventory step timed out"
+        const val CANCELLED_BY_BUYER = "cancelled by buyer"
+        private const val COMPENSATED = "compensated"
+        private const val LATE_PAYMENT_REFUND = "payment arrived after the order was cancelled"
+        private val HOLD_SAFETY_MARGIN: Duration = Duration.ofSeconds(60)
+        private val BUYER_CANCELLABLE = setOf(OrderStatus.AWAITING_STOCK, OrderStatus.AWAITING_PAYMENT)
     }
 }

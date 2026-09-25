@@ -1,10 +1,10 @@
 package com.livecommerce.order.domain
 
 enum class OrderStatus {
-    CREATED,
+    AWAITING_STOCK,
     AWAITING_PAYMENT,
-    PAYMENT_CONFIRMED,
-    AWAITING_INVENTORY,
+    PAYMENT_CONFIRMING,
+    CONFIRMING_STOCK,
     COMPLETED,
     COMPENSATING,
     CANCELLED

@@ -1,5 +1,6 @@
 package com.livecommerce.order.saga
 
+import com.livecommerce.order.domain.Order
 import com.livecommerce.order.domain.OrderRepository
 import com.livecommerce.order.domain.OrderStatus
 import org.slf4j.LoggerFactory
@@ -20,21 +21,31 @@ class SagaRecoveryScheduler(
 
     @Scheduled(fixedDelayString = "\${saga.recovery-interval-ms:5000}")
     fun recoverStuckOrders() {
-        val threshold = Instant.now().minusSeconds(stepTimeoutSeconds)
-        orderRepository.findTop50ByStatusInAndUpdatedAtBeforeOrderByUpdatedAtAsc(RECOVERABLE_STATUSES, threshold)
-            .forEach { order ->
-                try {
-                    orchestrator.recover(order.id, maxStepRetries)
-                } catch (ex: Exception) {
-                    log.warn("Saga recovery failed for order {}: {}", order.id, ex.message)
-                }
-            }
+        val now = Instant.now()
+        val stalled = orderRepository.findTop50ByStatusInAndUpdatedAtBeforeOrderByUpdatedAtAsc(
+            STEP_STATUSES,
+            now.minusSeconds(stepTimeoutSeconds)
+        )
+        val unpaid = orderRepository.findTop50ByStatusAndPaymentDeadlineBeforeOrderByPaymentDeadlineAsc(
+            OrderStatus.AWAITING_PAYMENT,
+            now
+        )
+        (stalled + unpaid).forEach { recover(it) }
+    }
+
+    private fun recover(order: Order) {
+        try {
+            orchestrator.recover(order.id, maxStepRetries)
+        } catch (ex: Exception) {
+            log.warn("Saga recovery failed for order {}: {}", order.id, ex.message)
+        }
     }
 
     companion object {
-        private val RECOVERABLE_STATUSES = setOf(
-            OrderStatus.AWAITING_PAYMENT,
-            OrderStatus.AWAITING_INVENTORY,
+        private val STEP_STATUSES = setOf(
+            OrderStatus.AWAITING_STOCK,
+            OrderStatus.PAYMENT_CONFIRMING,
+            OrderStatus.CONFIRMING_STOCK,
             OrderStatus.COMPENSATING
         )
     }

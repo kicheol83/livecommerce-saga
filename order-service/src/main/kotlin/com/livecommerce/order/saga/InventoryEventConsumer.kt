@@ -2,6 +2,8 @@ package com.livecommerce.order.saga
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.livecommerce.common.events.EventType
+import com.livecommerce.common.events.InventoryConfirmFailedEvent
+import com.livecommerce.common.events.InventoryConfirmedEvent
 import com.livecommerce.common.events.InventoryFailedEvent
 import com.livecommerce.common.events.InventoryReservedEvent
 import com.livecommerce.common.events.KafkaTopics
@@ -21,11 +23,19 @@ class InventoryEventConsumer(
         when (eventType) {
             EventType.INVENTORY_RESERVED -> {
                 val event = objectMapper.readValue(record.value(), InventoryReservedEvent::class.java)
-                orchestrator.onInventoryReserved(event.orderId)
+                orchestrator.onStockHeld(event.orderId, event.unitPrice, event.expiresAt)
             }
             EventType.INVENTORY_FAILED -> {
                 val event = objectMapper.readValue(record.value(), InventoryFailedEvent::class.java)
-                orchestrator.onInventoryFailed(event.orderId, event.reason)
+                orchestrator.onStockUnavailable(event.orderId, event.reason)
+            }
+            EventType.INVENTORY_CONFIRMED -> {
+                val event = objectMapper.readValue(record.value(), InventoryConfirmedEvent::class.java)
+                orchestrator.onStockConfirmed(event.orderId)
+            }
+            EventType.INVENTORY_CONFIRM_FAILED -> {
+                val event = objectMapper.readValue(record.value(), InventoryConfirmFailedEvent::class.java)
+                orchestrator.onStockConfirmationFailed(event.orderId, event.reason)
             }
         }
     }

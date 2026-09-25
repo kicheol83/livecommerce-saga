@@ -6,14 +6,16 @@ import org.springframework.web.client.RestClient
 import java.math.BigDecimal
 import java.util.UUID
 
-data class ReservePaymentRequest(
+data class ConfirmPaymentRequest(
     val orderId: UUID,
     val memberId: UUID,
+    val paymentKey: String,
     val amount: BigDecimal
 )
 
 data class CancelPaymentRequest(
-    val orderId: UUID
+    val orderId: UUID,
+    val reason: String
 )
 
 @Component
@@ -26,10 +28,9 @@ class PaymentClient(
         .requestFactory(timeoutRequestFactory())
         .build()
 
-    fun reservePayment(request: ReservePaymentRequest) {
+    fun confirmPayment(request: ConfirmPaymentRequest) {
         client.post()
-            .uri("/api/payments/reserve")
-            .header("Idempotency-Key", request.orderId.toString())
+            .uri("/api/payments/confirm")
             .body(request)
             .retrieve()
             .toBodilessEntity()
@@ -38,7 +39,6 @@ class PaymentClient(
     fun cancelPayment(request: CancelPaymentRequest) {
         client.post()
             .uri("/api/payments/cancel")
-            .header("Idempotency-Key", request.orderId.toString())
             .body(request)
             .retrieve()
             .toBodilessEntity()
