@@ -9,6 +9,12 @@ data class PaymentReservedEvent(
     val amount: BigDecimal
 )
 
+data class PaymentConfirmedEvent(
+    val orderId: UUID,
+    val paymentId: UUID,
+    val amount: BigDecimal
+)
+
 data class PaymentFailedEvent(
     val orderId: UUID,
     val reason: String
@@ -16,5 +22,5 @@ data class PaymentFailedEvent(
 
 data class PaymentCancelledEvent(
     val orderId: UUID,
-    val paymentId: UUID
+    val paymentId: UUID?
 )

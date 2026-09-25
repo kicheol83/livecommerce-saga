@@ -30,6 +30,29 @@ class Payment(
     @Column(nullable = false)
     var status: PaymentStatus,
 
+    @Column(name = "payment_key")
+    val paymentKey: String? = null,
+
+    @Column
+    val method: String? = null,
+
+    @Column(name = "approved_at")
+    val approvedAt: Instant? = null,
+
+    @Column(name = "failure_code")
+    val failureCode: String? = null,
+
+    @Column(name = "failure_message")
+    val failureMessage: String? = null,
+
+    @Column(name = "cancelled_at")
+    var cancelledAt: Instant? = null,
+
     @Column(name = "created_at", nullable = false, updatable = false)
     val createdAt: Instant = Instant.now()
-)
+) {
+    fun markCancelled(now: Instant) {
+        status = PaymentStatus.CANCELLED
+        cancelledAt = now
+    }
+}

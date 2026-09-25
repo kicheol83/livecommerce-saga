@@ -2,6 +2,7 @@ package com.livecommerce.common.events
 
 object EventType {
     const val PAYMENT_RESERVED = "PaymentReserved"
+    const val PAYMENT_CONFIRMED = "PaymentConfirmed"
     const val PAYMENT_FAILED = "PaymentFailed"
     const val PAYMENT_CANCELLED = "PaymentCancelled"
     const val INVENTORY_RESERVED = "InventoryReserved"
