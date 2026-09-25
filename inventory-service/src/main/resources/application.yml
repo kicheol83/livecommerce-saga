@@ -18,6 +18,10 @@ spring:
   kafka:
     bootstrap-servers: localhost:9094
 
+inventory:
+  hold-ttl-seconds: 600
+  hold-sweep-interval-ms: 5000
+
 management:
   tracing:
     sampling:

@@ -1,5 +1,6 @@
 package com.livecommerce.inventory.api
 
+import com.livecommerce.inventory.api.dto.ConfirmInventoryRequest
 import com.livecommerce.inventory.api.dto.ProductStockResponse
 import com.livecommerce.inventory.api.dto.ReleaseInventoryRequest
 import com.livecommerce.inventory.api.dto.ReserveInventoryRequest
@@ -21,14 +22,20 @@ class InventoryController(
 ) {
 
     @GetMapping("/products/{productId}")
-    fun stock(@PathVariable productId: UUID): ResponseEntity<ProductStockResponse> {
-        val quantity = inventoryService.findStock(productId) ?: return ResponseEntity.notFound().build()
-        return ResponseEntity.ok(ProductStockResponse(productId, quantity))
+    fun product(@PathVariable productId: UUID): ResponseEntity<ProductStockResponse> {
+        val product = inventoryService.findProduct(productId) ?: return ResponseEntity.notFound().build()
+        return ResponseEntity.ok(ProductStockResponse(product.productId, product.quantityAvailable, product.unitPrice))
     }
 
     @PostMapping("/reserve")
     fun reserve(@RequestBody request: ReserveInventoryRequest): ResponseEntity<Void> {
         inventoryService.reserve(request.orderId, request.productId, request.quantity)
+        return ResponseEntity.status(HttpStatus.ACCEPTED).build()
+    }
+
+    @PostMapping("/confirm")
+    fun confirm(@RequestBody request: ConfirmInventoryRequest): ResponseEntity<Void> {
+        inventoryService.confirm(request.orderId)
         return ResponseEntity.status(HttpStatus.ACCEPTED).build()
     }
 

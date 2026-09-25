@@ -6,6 +6,8 @@ object EventType {
     const val PAYMENT_CANCELLED = "PaymentCancelled"
     const val INVENTORY_RESERVED = "InventoryReserved"
     const val INVENTORY_FAILED = "InventoryFailed"
+    const val INVENTORY_CONFIRMED = "InventoryConfirmed"
+    const val INVENTORY_CONFIRM_FAILED = "InventoryConfirmFailed"
     const val STOCK_CHANGED = "StockChanged"
 }
 

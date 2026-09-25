@@ -2,6 +2,8 @@ package com.livecommerce.inventory.domain
 
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
+import jakarta.persistence.EnumType
+import jakarta.persistence.Enumerated
 import jakarta.persistence.Id
 import jakarta.persistence.Table
 import jakarta.persistence.UniqueConstraint
@@ -23,9 +25,21 @@ class InventoryReservation(
     @Column(nullable = false)
     val quantity: Int,
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    var released: Boolean = false,
+    var status: ReservationStatus = ReservationStatus.HELD,
+
+    @Column(name = "expires_at")
+    var expiresAt: Instant? = null,
 
     @Column(name = "created_at", nullable = false, updatable = false)
     val createdAt: Instant = Instant.now()
-)
+) {
+    fun isHoldActive(now: Instant): Boolean {
+        return status == ReservationStatus.HELD && expiresAt?.isAfter(now) == true
+    }
+
+    fun holdsStock(): Boolean {
+        return status == ReservationStatus.HELD || status == ReservationStatus.CONFIRMED
+    }
+}
