@@ -6,6 +6,10 @@ dependencies {
 
 val testSourceSet = the<SourceSetContainer>()["test"]
 
+tasks.withType<Test> {
+    systemProperty("junit.jupiter.execution.timeout.default", "5m")
+}
+
 tasks.named<Test>("test") {
     useJUnitPlatform {
         excludeTags("chaos")

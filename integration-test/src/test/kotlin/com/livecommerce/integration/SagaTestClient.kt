@@ -12,6 +12,9 @@ import java.sql.DriverManager
 import java.sql.PreparedStatement
 import java.time.Duration
 import java.util.UUID
+import java.util.concurrent.ExecutionException
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
 
 enum class Database(
     private val port: Int,
@@ -30,7 +33,7 @@ enum class Database(
 
 class SagaTestClient {
 
-    private val httpClient = HttpClient.newHttpClient()
+    private val httpClient = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(CONNECT_TIMEOUT_SECONDS)).build()
     private val objectMapper = ObjectMapper()
 
     fun createOrder(quantity: Int): String {
@@ -230,7 +233,7 @@ class SagaTestClient {
     }
 
     private fun send(request: HttpRequest): HttpResponse<String> {
-        return httpClient.send(request, HttpResponse.BodyHandlers.ofString())
+        return sendWithTimeout(httpClient, request)
     }
 
     companion object {
@@ -246,5 +249,18 @@ class SagaTestClient {
         val TERMINAL_STATUSES = setOf("COMPLETED", "CANCELLED")
         val PAYABLE_OR_TERMINAL = setOf("AWAITING_PAYMENT", "COMPLETED", "CANCELLED")
         private const val POLL_INTERVAL_MS = 500L
+        private const val CONNECT_TIMEOUT_SECONDS = 5L
+    }
+}
+
+private const val RESPONSE_TIMEOUT_SECONDS = 20L
+
+fun sendWithTimeout(client: HttpClient, request: HttpRequest): HttpResponse<String> {
+    return try {
+        client.sendAsync(request, HttpResponse.BodyHandlers.ofString()).get(RESPONSE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+    } catch (ex: TimeoutException) {
+        throw AssertionError("No response within ${RESPONSE_TIMEOUT_SECONDS}s from ${request.method()} ${request.uri()}", ex)
+    } catch (ex: ExecutionException) {
+        throw AssertionError("Request failed: ${request.method()} ${request.uri()}: ${ex.cause?.message}", ex.cause ?: ex)
     }
 }

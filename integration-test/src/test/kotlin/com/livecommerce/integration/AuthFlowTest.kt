@@ -12,12 +12,13 @@ import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
+import java.time.Duration
 import java.util.UUID
 
 class AuthFlowTest {
 
     private val saga = SagaTestClient()
-    private val httpClient = HttpClient.newHttpClient()
+    private val httpClient = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build()
     private val objectMapper = ObjectMapper()
 
     @BeforeEach
@@ -134,7 +135,7 @@ class AuthFlowTest {
     }
 
     private fun send(builder: HttpRequest.Builder): HttpResponse<String> {
-        return httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofString())
+        return sendWithTimeout(httpClient, builder.build())
     }
 
     private fun json(response: HttpResponse<String>): JsonNode {
