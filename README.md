@@ -143,6 +143,7 @@ Dizayn qarorlari:
 - Stok paneli oddiy progress bar emas, ikki qator trikotaj ko'zlaridan iborat. Sotilgan sari ko'zlar "so'kiladi", stok 20% dan kamayganda rangi o'zgaradi va "마감 임박" yozuvi chiqadi.
 - Saga bosqichlari foydalanuvchiga ochiq ko'rsatiladi: 주문 접수 → 결제 승인 → 재고 확보 → 주문 완료. Muvaffaqiyatsiz bo'lsa, qaysi bosqichda to'xtagani va to'lov avtomatik qaytarilgani tushuntiriladi.
 - Shrift sifatida Pretendard ishlatilgan, koreys matni so'z o'rtasidan bo'linmasligi uchun `word-break: keep-all` qo'llangan. Harakatni kamaytirish sozlamasi (`prefers-reduced-motion`) hurmat qilinadi, jonli yangilanishlar ekran o'quvchilar uchun `aria-live` orqali e'lon qilinadi.
+- To'lov: stok ushlangach buyurtma paneli ichida Toss Payments widget'i ochiladi, qolgan vaqt jonli sanaladi. To'lov bosqichida panel tasodifiy bosish bilan yopilmaydi — faqat aniq "주문 취소" tugmasi orqali, bu esa stokni darhol qaytaradi. Toss `successUrl`ga qaytgach, `/payments/success` sahifasi tasdiqlashni serverga yuboradi va Saga bosqichlarini shu yerda jonli ko'rsatadi. `/payments/fail` esa qayta to'lash (buyurtma live ekranda qayta ochiladi) yoki bekor qilishni taklif qiladi. React StrictMode effektni ikki marta ishga tushirsa ham, Toss widget'ini chizish va o'chirish ketma-ket navbatda bajariladi, shuning uchun ikkita to'lov UI bir-biriga to'qnashmaydi.
 - Video oqimining o'zi (RTMP/HLS) loyiha doirasidan tashqarida. Efir sahnasi simulyatsiya qilinadi. `NEXT_PUBLIC_LIVE_VIDEO_URL` berilsa, o'sha video ko'rsatiladi.
 
 ## Distributed tracing
@@ -171,4 +172,4 @@ Buyurtma holatini real vaqtda kuzatish uchun WebSocket'ga ulaning: `ws://localho
 
 ## Loyihaning holati
 
-Saga + Outbox oqimi, idempotentlik, timeout asosidagi tiklanish, distributed tracing, chaos testlari, live efir servisi, frontend, autentifikatsiya va API Gateway tayyor. Toss Payments backend integratsiyasi va stokni avval ushlab qoladigan Saga tayyor. Keyingi bosqichlar: frontend to'lov oynasi, admin paneli, yetkazib berish kuzatuvi, k6 yuklama testi.
+Saga + Outbox oqimi, idempotentlik, timeout asosidagi tiklanish, distributed tracing, chaos testlari, live efir servisi, frontend, autentifikatsiya va API Gateway tayyor. Toss Payments integratsiyasi (backend va frontend) hamda stokni avval ushlab qoladigan Saga tayyor. Keyingi bosqichlar: admin paneli, yetkazib berish kuzatuvi, k6 yuklama testi.
