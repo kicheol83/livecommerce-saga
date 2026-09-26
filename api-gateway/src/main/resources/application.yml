@@ -21,6 +21,9 @@ spring:
           jwk-set-uri: ${services.auth.url}/.well-known/jwks.json
   cloud:
     gateway:
+      httpclient:
+        connect-timeout: 3000
+        response-timeout: 30s
       routes:
         - id: auth
           uri: ${services.auth.url}
