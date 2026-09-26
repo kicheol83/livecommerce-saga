@@ -1,21 +1,34 @@
 # LiveCommerce Saga
 
-Order, Payment va Inventory uchta mustaqil Spring Boot mikroservisi, orchestration-based Saga pattern va transactional outbox orqali bog'langan.
+Jonli efirda flash-sale qiladigan live commerce platformasi. Order, Payment va Inventory mustaqil Spring Boot mikroservislari orchestration-based Saga va transactional outbox orqali bog'langan. To'lov Toss Payments bilan amalga oshiriladi.
 
 ## Arxitektura
 
 ```
-Client (WebSocket) -> Order Service (Saga orchestrator)
-                          |-- REST --> Payment Service --(outbox)--> Kafka --> Order Service
-                          |-- REST --> Inventory Service --(outbox)--> Kafka --> Order Service
+Browser ── Next.js ── API Gateway (JWT) ─┬─ auth-service
+                                         ├─ order-service (Saga orchestrator)
+                                         └─ live-service (STOMP: chat, stok, tomoshabinlar)
+
+order-service ── REST ──> inventory-service ──(outbox)──> Kafka ──> order-service
+order-service ── REST ──> payment-service ──> Toss Payments
+                               └────────(outbox)──> Kafka ──> order-service
 ```
 
-1. Client `POST /api/orders` orqali buyurtma yaratadi.
-2. Order Service buyurtmani `AWAITING_PAYMENT` holatida saqlaydi va Payment Service'ga REST orqali murojaat qiladi.
-3. Payment Service to'lovni bir DB tranzaksiyasi ichida yozadi va outbox jadvaliga event qo'shadi.
-4. Har bir servisning outbox relay'i (`SELECT ... FOR UPDATE SKIP LOCKED` bilan) pending eventlarni Kafka'ga chiqaradi.
-5. Order Service Kafka orqali natijani oladi va Saga holatini yangilaydi, WebSocket orqali clientga push qiladi.
-6. Agar Inventory bosqichi muvaffaqiyatsiz bo'lsa, Order Service Payment Service'dan to'lovni bekor qilishni so'raydi (compensating transaction).
+### Saga tartibi: avval stokni ushlab qolish, keyin to'lov
+
+```
+AWAITING_STOCK → AWAITING_PAYMENT → PAYMENT_CONFIRMING → CONFIRMING_STOCK → COMPLETED
+       ↓                ↓                  ↓                    ↓
+   CANCELLED        CANCELLED          CANCELLED       COMPENSATING → CANCELLED
+```
+
+1. Xaridor `POST /api/orders` yuboradi. Unda faqat mahsulot va miqdor bo'ladi, narx yo'q. Buyurtma `AWAITING_STOCK` holatida yaratiladi.
+2. Inventory stokni 10 daqiqaga ushlab qoladi (`HELD`) va `InventoryReserved` hodisasida birlik narxini qaytaradi. Order-service summani o'zi hisoblaydi va buyurtmani `AWAITING_PAYMENT` holatiga o'tkazadi. To'lov oynasi 5 daqiqa, lekin stok ushlanish muddati tugashidan kamida 60 soniya oldin yopiladi.
+3. Xaridor Toss oynasida to'laydi. Brauzer `paymentKey` va summani `POST /api/orders/{id}/payment`ga yuboradi. Summa server hisoblaganiga mos kelmasa, so'rov `AMOUNT_MISMATCH` bilan rad etiladi.
+4. Payment-service Toss'ning `/v1/payments/confirm` API'sini `Idempotency-Key` bilan chaqiradi. Tashqi HTTP chaqiruv DB tranzaksiyasidan tashqarida bajariladi, natija esa outbox hodisasi bilan birga bitta tranzaksiyada yoziladi.
+5. To'lov tasdiqlangach, inventory ushlangan stokni yakuniy band qiladi (`CONFIRMED`) va buyurtma `COMPLETED` bo'ladi.
+
+Nega shu tartib: flash-sale'da mahsulot tugab qolishi odatiy holat. Agar avval pul yechilsa, keyin "stok qolmadi" deyilsa, har bunday holatda qaytarish (refund) kerak bo'ladi — bu mijoz uchun ham, PG komissiyasi uchun ham qimmat. Stokni avval ushlab qolish qaytarishni faqat kam uchraydigan poyga holatlariga qoldiradi.
 
 ## Talab qilinadigan vositalar
 
@@ -59,12 +72,16 @@ Testlar ishlab turgan stackka (yuqoridagi "Lokal ishga tushirish" bo'limi) real 
 
 | Nosozlik | Tizimning xatti-harakati | Isbot |
 | --- | --- | --- |
-| Kafka ishlamay qoladi | Outbox relay hodisani faqat broker tasdiqlagandan keyin `PUBLISHED` deb belgilaydi; ungacha hodisa `PENDING` holatida qoladi va qayta yuboriladi, urinishlar soni va oxirgi xato saqlanadi | `chaosTest`: Kafka to'xtatilgan paytda yaratilgan buyurtma u qaytgach `COMPLETED` bo'ladi |
-| Payment bazasi vaqtincha yo'q | Tashqi chaqiruvlarda timeout bor; buyurtma `AWAITING_PAYMENT` holatida qoladi va recovery scheduler bosqichni qayta yuboradi | `chaosTest`: baza qaytgach buyurtma `COMPLETED` bo'ladi |
-| Inventory javob bermaydi | 3 marta qayta urinishdan so'ng buyurtma `COMPENSATING` holatiga o'tadi, to'lov bekor qilinadi, buyurtma `CANCELLED` bo'ladi | `chaosTest`: `inventory step timed out` sababi bilan bekor qilinadi |
+| Kafka ishlamay qoladi | Outbox relay hodisani faqat broker tasdiqlagandan keyin `PUBLISHED` deb belgilaydi. Ungacha hodisa `PENDING` holatida kutib turadi va qayta yuboriladi | `chaosTest`: Kafka o'chiq paytda yaratilgan buyurtma u qaytgach to'lanadi va `COMPLETED` bo'ladi |
+| Payment bazasi tasdiqlash paytida yo'q | Buyurtma `PAYMENT_CONFIRMING` holatida qoladi, recovery scheduler tasdiqlashni qayta yuboradi. Toss'ga bir xil `Idempotency-Key` bilan boradi, shuning uchun pul ikki marta yechilmaydi | `chaosTest`: baza qaytgach bitta to'lov yoziladi va buyurtma `COMPLETED` bo'ladi |
+| Inventory javob bermaydi | Stokni ushlash 3 marta qayta uriniladi, keyin buyurtma pul yechilmasdan bekor qilinadi | `chaosTest`: `inventory step timed out`, to'lovlar soni 0 |
+| Karta rad etiladi | Buyurtma bekor qilinadi, ushlangan stok darhol qaytariladi | `SagaEndToEndTest` |
+| Mijoz summani o'zgartiradi | `AMOUNT_MISMATCH` (400), Toss'ga so'rov umuman ketmaydi | `SagaEndToEndTest` |
+| Xaridor to'lamay ketadi | To'lov oynasi tugagach buyurtma bekor qilinadi va stok qaytariladi. Order-service ishlamay qolsa ham, inventory'ning o'z tozalagichi muddati o'tgan ushlashlarni qaytaradi | Recovery scheduler va `HoldExpiryScheduler` |
+| To'lov tasdiqlangan paytda stok muddati tugagan | Inventory `InventoryConfirmFailed` qaytaradi, buyurtma `COMPENSATING` holatiga o'tadi, to'lov Toss orqali qaytariladi | Orkestrator mantiqi |
 | Bir xil xabar ikki marta keladi | Har bir holat o'tishi faqat kutilgan holatdan ruxsat etiladi (`@Version` bilan himoyalangan), payment va inventory `order_id` bo'yicha idempotent | `IdempotencyTest` |
-| Bekor qilingandan keyin kech javob keladi | Bekor qilingan buyurtma uchun kelgan `PaymentReserved` to'lovni bekor qiladi, `InventoryReserved` esa zaxirani qaytaradi | Orkestrator mantiqi |
-| Ikkita parallel release | Reservation qatori `SELECT ... FOR UPDATE` bilan qulflanadi, stok ikki marta qaytarilmaydi | `IdempotencyTest` |
+| Bekor qilingandan keyin kech javob keladi | Bekor qilingan buyurtma uchun kelgan `PaymentConfirmed` to'lovni qaytaradi, `InventoryReserved` esa stokni bo'shatadi | Orkestrator mantiqi |
+| Qaytarilgan ushlashni tasdiqlashga urinish | Tasdiqlash rad etiladi, stok o'zgarmaydi | `IdempotencyTest` |
 
 ## Live efir servisi
 
@@ -81,6 +98,12 @@ Testlar ishlab turgan stackka (yuqoridagi "Lokal ishga tushirish" bo'limi) real 
 Stok har o'zgarganda (band qilish yoki qaytarish) inventory `StockChanged` hodisasini xuddi shu tranzaksiya ichida outbox'ga yozadi. Hodisa kaliti `productId`, shuning uchun Kafka bitta mahsulotning o'zgarishlarini tartib bilan yetkazadi. live-service hodisani `stock-events` topic'idan o'qib, barcha tomoshabinlarga STOMP orqali yuboradi.
 
 Cheklov: chat tarixi va tomoshabinlar soni xotirada saqlanadi, shuning uchun live-service hozircha bitta instansiyada ishlaydi. Gorizontal masshtablash uchun ularni Redis'ga o'tkazish va har bir instansiyaga alohida Kafka consumer group berish kerak bo'ladi.
+
+## To'lov (Toss Payments)
+
+Payment-service Toss Payments'ning haqiqiy API'si bilan ishlaydi: tasdiqlash `/v1/payments/confirm`, qaytarish `/v1/payments/{paymentKey}/cancel`. Autentifikatsiya `Basic base64(secretKey:)`. Har bir chaqiruv `Idempotency-Key` bilan yuboriladi (`confirm-{orderId}`, `cancel-{orderId}`). Standart konfiguratsiyada Toss'ning ochiq hujjat test kaliti ishlatiladi — haqiqiy pul yechilmaydi. O'z test kalitingizdan foydalanish uchun `PAYMENTS_TOSS_SECRET_KEY` muhit o'zgaruvchisini bering. Live kalitga o'tish uchun esa Toss bilan PG shartnomasi (va 사업자등록) kerak — bu faqat konfiguratsiya o'zgarishi, kod o'zgarmaydi.
+
+Avtomatik testlar Toss oynasida karta ma'lumotini kirita olmaydi. Shuning uchun `payments.fake-enabled=true` bo'lganda `fake_` bilan boshlanadigan `paymentKey`'lar Toss'ga emas, test shlyuziga yo'naltiriladi: `fake_approve_*` tasdiqlanadi, `fake_decline_*` rad etiladi. Production'da bu sozlama o'chirilishi shart.
 
 ## Autentifikatsiya va API Gateway
 
@@ -137,12 +160,15 @@ Jaeger UI: http://localhost:16686 — Service: `order-service`, so'ng "Find Trac
 ```powershell
 $login = Invoke-RestMethod -Method Post -Uri http://localhost:8080/api/auth/login -ContentType "application/json" -Body '{"email":"admin@livecommerce.local","password":"admin1234!"}'
 $headers = @{ Authorization = "Bearer $($login.accessToken)" }
-$order = Invoke-RestMethod -Method Post -Uri http://localhost:8080/api/orders -Headers $headers -ContentType "application/json" -Body '{"productId":"11111111-1111-1111-1111-111111111111","quantity":1,"amount":39000}'
-Invoke-RestMethod -Uri "http://localhost:8080/api/orders/$($order.orderId)" -Headers $headers
+$order = Invoke-RestMethod -Method Post -Uri http://localhost:8080/api/orders -Headers $headers -ContentType "application/json" -Body '{"productId":"11111111-1111-1111-1111-111111111111","quantity":1}'
+Start-Sleep -Seconds 2
+$payable = Invoke-RestMethod -Uri "http://localhost:8080/api/orders/$($order.orderId)" -Headers $headers
+$payment = @{ paymentKey = "fake_approve_demo"; amount = $payable.amount } | ConvertTo-Json
+Invoke-RestMethod -Method Post -Uri "http://localhost:8080/api/orders/$($order.orderId)/payment" -Headers $headers -ContentType "application/json" -Body $payment
 ```
 
 Buyurtma holatini real vaqtda kuzatish uchun WebSocket'ga ulaning: `ws://localhost:8080/ws/orders?orderId=<qaytgan orderId>`
 
 ## Loyihaning holati
 
-Saga + Outbox oqimi, idempotentlik, timeout asosidagi tiklanish, distributed tracing, chaos testlari, live efir servisi, frontend, autentifikatsiya va API Gateway tayyor. Keyingi bosqichlar: Toss Payments integratsiyasi, admin paneli, yetkazib berish kuzatuvi, k6 yuklama testi.
+Saga + Outbox oqimi, idempotentlik, timeout asosidagi tiklanish, distributed tracing, chaos testlari, live efir servisi, frontend, autentifikatsiya va API Gateway tayyor. Toss Payments backend integratsiyasi va stokni avval ushlab qoladigan Saga tayyor. Keyingi bosqichlar: frontend to'lov oynasi, admin paneli, yetkazib berish kuzatuvi, k6 yuklama testi.
