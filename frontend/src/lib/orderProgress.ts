@@ -9,23 +9,43 @@ export type ProgressStep = {
 
 export type OrderOutcome = "processing" | "completed" | "cancelled";
 
+const STEP_LABELS = ["재고 확보", "결제", "결제 승인", "주문 완료"];
+
 const STATUS_RANK: Record<OrderStatus, number> = {
-  CREATED: 0,
+  AWAITING_STOCK: 0,
   AWAITING_PAYMENT: 1,
-  PAYMENT_CONFIRMED: 2,
-  AWAITING_INVENTORY: 3,
+  PAYMENT_CONFIRMING: 2,
+  CONFIRMING_STOCK: 3,
   COMPENSATING: 4,
   COMPLETED: 5,
   CANCELLED: 5
 };
 
-const INVENTORY_FAILURES = new Set(["insufficient stock", "inventory step timed out"]);
+const ACTIVE_STEP: Partial<Record<OrderStatus, number>> = {
+  AWAITING_STOCK: 0,
+  AWAITING_PAYMENT: 1,
+  PAYMENT_CONFIRMING: 2,
+  CONFIRMING_STOCK: 3
+};
+
+const FAILED_STEP: Record<string, number> = {
+  "insufficient stock": 0,
+  "inventory step timed out": 0,
+  "payment window expired": 1,
+  "cancelled by buyer": 1,
+  "payment declined": 2,
+  "stock hold expired": 3,
+  "stock hold not found": 3
+};
 
 const FAILURE_MESSAGES: Record<string, string> = {
-  "insufficient stock": "남은 수량이 부족해 주문이 취소됐어요. 결제는 자동으로 취소됐어요.",
-  "inventory step timed out": "재고 확인이 늦어져 주문이 취소됐어요. 결제는 자동으로 취소됐어요.",
-  "payment step timed out": "결제 응답이 없어 주문이 취소됐어요.",
-  "amount exceeds single payment limit": "1회 결제 한도를 넘어 주문할 수 없어요."
+  "insufficient stock": "남은 수량이 부족해 주문하지 못했어요. 결제는 진행되지 않았어요.",
+  "inventory step timed out": "재고 확인이 늦어져 주문이 취소됐어요. 결제는 진행되지 않았어요.",
+  "payment window expired": "결제 시간이 지나 주문이 취소됐어요. 확보했던 재고는 반환됐어요.",
+  "cancelled by buyer": "주문을 취소했어요. 확보했던 재고는 바로 반환됐어요.",
+  "payment declined": "카드사에서 결제를 승인하지 않았어요. 확보했던 재고는 반환됐어요.",
+  "stock hold expired": "결제를 확인하는 동안 재고 확보 시간이 끝나 주문이 취소됐어요. 결제 금액은 자동으로 환불돼요.",
+  "stock hold not found": "재고를 확정하지 못해 주문이 취소됐어요. 결제 금액은 자동으로 환불돼요."
 };
 
 export function isNewer(next: OrderSnapshot, current: OrderSnapshot | null): boolean {
@@ -56,37 +76,29 @@ export function failureMessage(reason: string | null): string {
   return FAILURE_MESSAGES[reason] ?? "주문이 취소됐어요.";
 }
 
+function markUpTo(index: number, state: StepState): StepState[] {
+  return STEP_LABELS.map((_, position) => (position < index ? "done" : position === index ? state : "pending"));
+}
+
+function stepStates(snapshot: OrderSnapshot | null): StepState[] {
+  if (snapshot === null) {
+    return markUpTo(0, "active");
+  }
+  switch (snapshot.status) {
+    case "COMPLETED":
+      return STEP_LABELS.map(() => "done");
+    case "COMPENSATING":
+      return markUpTo(3, "failed");
+    case "CANCELLED": {
+      const failedAt = FAILED_STEP[snapshot.failureReason ?? ""];
+      return failedAt === undefined ? STEP_LABELS.map(() => "pending") : markUpTo(failedAt, "failed");
+    }
+    default:
+      return markUpTo(ACTIVE_STEP[snapshot.status] ?? 0, "active");
+  }
+}
+
 export function progressSteps(snapshot: OrderSnapshot | null): ProgressStep[] {
-  const status = snapshot?.status ?? "CREATED";
-  const inventoryFailed = INVENTORY_FAILURES.has(snapshot?.failureReason ?? "");
-  const cancelled = status === "CANCELLED";
-  const compensating = status === "COMPENSATING";
-  const received: StepState = snapshot === null ? "active" : "done";
-
-  let payment: StepState = "pending";
-  if (status === "AWAITING_PAYMENT") {
-    payment = "active";
-  } else if (cancelled && !inventoryFailed) {
-    payment = "failed";
-  } else if (STATUS_RANK[status] >= STATUS_RANK.PAYMENT_CONFIRMED) {
-    payment = "done";
-  }
-
-  let inventory: StepState = "pending";
-  if (status === "AWAITING_INVENTORY" || status === "PAYMENT_CONFIRMED") {
-    inventory = "active";
-  } else if (compensating || (cancelled && inventoryFailed)) {
-    inventory = "failed";
-  } else if (status === "COMPLETED") {
-    inventory = "done";
-  }
-
-  const completion: StepState = status === "COMPLETED" ? "done" : "pending";
-
-  return [
-    { label: "주문 접수", state: received },
-    { label: "결제 승인", state: payment },
-    { label: "재고 확보", state: inventory },
-    { label: "주문 완료", state: completion }
-  ];
+  const states = stepStates(snapshot);
+  return STEP_LABELS.map((label, index) => ({ label, state: states[index] }));
 }

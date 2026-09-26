@@ -10,6 +10,8 @@ type StatusMessage = {
   orderId: string;
   status: OrderStatus;
   reason: string | null;
+  amount: number | null;
+  paymentDeadline: string | null;
 };
 
 const POLL_INTERVAL_MS = 3000;
@@ -61,7 +63,14 @@ export function useOrderTracker(orderId: string | null, initial: OrderSnapshot |
       };
       socket.onmessage = (event: MessageEvent<string>) => {
         const message = JSON.parse(event.data) as StatusMessage;
-        apply({ orderId: message.orderId, status: message.status, failureReason: message.reason });
+        apply({
+          orderId: message.orderId,
+          status: message.status,
+          failureReason: message.reason,
+          amount: message.amount,
+          paymentDeadline: message.paymentDeadline,
+          quantity: null
+        });
       };
       socket.onclose = () => {
         if (disposed || terminalRef.current) {

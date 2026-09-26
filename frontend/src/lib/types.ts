@@ -24,10 +24,10 @@ export type StockChanged = {
 };
 
 export type OrderStatus =
-  | "CREATED"
+  | "AWAITING_STOCK"
   | "AWAITING_PAYMENT"
-  | "PAYMENT_CONFIRMED"
-  | "AWAITING_INVENTORY"
+  | "PAYMENT_CONFIRMING"
+  | "CONFIRMING_STOCK"
   | "COMPLETED"
   | "COMPENSATING"
   | "CANCELLED";
@@ -36,6 +36,9 @@ export type OrderSnapshot = {
   orderId: string;
   status: OrderStatus;
   failureReason: string | null;
+  amount: number | null;
+  paymentDeadline: string | null;
+  quantity: number | null;
 };
 
 export type ConnectionState = "connecting" | "open" | "reconnecting";

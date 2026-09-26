@@ -1,14 +1,15 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useCountdown } from "@/hooks/useCountdown";
 import { useLiveChannel } from "@/hooks/useLiveChannel";
 import { useOrderTracker } from "@/hooks/useOrderTracker";
-import { createOrder, fetchChatHistory, fetchSession } from "@/lib/api";
+import { cancelOrder, createOrder, fetchChatHistory, fetchOrder, fetchSession } from "@/lib/api";
 import { logout } from "@/lib/authStore";
 import { MAX_ORDER_QUANTITY } from "@/lib/config";
+import { isTerminal } from "@/lib/orderProgress";
 import type { ChatMessage, LiveSession, OrderSnapshot, StockChanged } from "@/lib/types";
 import { ChatComposer } from "./ChatComposer";
 import { AccountMenu } from "./AccountMenu";
@@ -27,6 +28,7 @@ const TOAST_DURATION_MS = 3500;
 
 export function LiveRoom() {
   const router = useRouter();
+  const resumeOrderId = useSearchParams().get("order");
   const auth = useAuth();
   const [session, setSession] = useState<LiveSession | null>(null);
   const [loadState, setLoadState] = useState<LoadState>("loading");
@@ -40,6 +42,7 @@ export function LiveRoom() {
   const [createdOrder, setCreatedOrder] = useState<OrderSnapshot | null>(null);
   const [orderedQuantity, setOrderedQuantity] = useState(1);
   const [toast, setToast] = useState<string | null>(null);
+  const [cancelling, setCancelling] = useState(false);
   const productIdRef = useRef<string | null>(null);
 
   const applyStock = useCallback((value: number | null) => {
@@ -124,8 +127,7 @@ export function LiveRoom() {
     try {
       const order = await createOrder({
         productId: session.productId,
-        quantity,
-        amount: session.price * quantity
+        quantity
       });
       setCreatedOrder(order);
       setOrderPhase("tracking");
@@ -139,6 +141,40 @@ export function LiveRoom() {
     setOrderPhase("idle");
     setCreatedOrder(null);
   }, []);
+
+  const trackedOrderId = tracked?.orderId ?? null;
+
+  const handleCancelOrder = useCallback(async () => {
+    if (trackedOrderId === null || cancelling) {
+      return;
+    }
+    setCancelling(true);
+    const result = await cancelOrder(trackedOrderId);
+    setCancelling(false);
+    if (result.ok) {
+      setOrderPhase("idle");
+      setCreatedOrder(null);
+      setToast("주문을 취소했어요. 확보했던 재고는 바로 반환됐어요.");
+    } else {
+      setToast("주문을 취소하지 못했어요. 잠시 후 다시 시도해 주세요.");
+    }
+  }, [cancelling, trackedOrderId]);
+
+  useEffect(() => {
+    if (resumeOrderId === null || auth.status !== "authenticated") {
+      return;
+    }
+    router.replace("/");
+    fetchOrder(resumeOrderId)
+      .then((order) => {
+        if (!isTerminal(order.status)) {
+          setOrderedQuantity(order.quantity ?? 1);
+          setCreatedOrder(order);
+          setOrderPhase("tracking");
+        }
+      })
+      .catch(() => setToast("주문 정보를 불러오지 못했어요."));
+  }, [auth.status, resumeOrderId, router]);
 
   const { sendChat } = channel;
   const handleSendChat = useCallback(
@@ -206,6 +242,11 @@ export function LiveRoom() {
                 snapshot={orderPhase === "submitting" ? null : tracked}
                 productName={session.productName}
                 quantity={orderedQuantity}
+                user={auth.user}
+                cancelling={cancelling}
+                onCancelOrder={() => {
+                  void handleCancelOrder();
+                }}
                 onClose={handleCloseSheet}
               />
             )}
