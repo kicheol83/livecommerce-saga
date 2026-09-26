@@ -5,11 +5,13 @@ import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.client.SimpleClientHttpRequestFactory
 import org.springframework.stereotype.Component
 import org.springframework.web.client.RestClient
+import java.math.BigDecimal
 import java.util.UUID
 
 data class ProductStockResponse(
     val productId: UUID,
-    val quantityAvailable: Int
+    val quantityAvailable: Int,
+    val unitPrice: BigDecimal? = null
 )
 
 @Component
@@ -30,13 +32,12 @@ class InventoryClient(
         )
         .build()
 
-    fun findStock(productId: UUID): Int? {
+    fun findProduct(productId: UUID): ProductStockResponse? {
         return try {
             client.get()
                 .uri("/api/inventory/products/{productId}", productId)
                 .retrieve()
                 .body(ProductStockResponse::class.java)
-                ?.quantityAvailable
         } catch (ex: Exception) {
             log.warn("Could not load stock for product {}: {}", productId, ex.message)
             null

@@ -17,15 +17,16 @@ class LiveSessionService(
     private val startedAt = Instant.now()
 
     fun currentSession(): LiveSessionResponse {
+        val product = inventoryClient.findProduct(properties.productId)
         return LiveSessionResponse(
             sessionId = properties.id,
             title = properties.title,
             hostName = properties.hostName,
             productId = properties.productId,
             productName = properties.productName,
-            price = properties.price,
+            price = product?.unitPrice ?: properties.price,
             originalPrice = properties.originalPrice,
-            stock = inventoryClient.findStock(properties.productId),
+            stock = product?.quantityAvailable,
             endsAt = currentWindowEnd(),
             viewerCount = viewerRegistry.count()
         )
