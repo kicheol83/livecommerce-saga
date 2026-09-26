@@ -19,12 +19,12 @@ class IdempotencyTest {
     }
 
     @Test
-    fun `repeated payment reservations for one order create exactly one payment and one event`() {
+    fun `repeated payment confirmations for one order create exactly one payment and one event`() {
         val orderId = UUID.randomUUID()
-        val body = """{"orderId":"$orderId","memberId":"${UUID.randomUUID()}","amount":39000}"""
+        val body = """{"orderId":"$orderId","memberId":"${UUID.randomUUID()}","paymentKey":"fake_approve_$orderId","amount":39000}"""
 
         repeat(3) {
-            assertThat(saga.post("$PAYMENT_SERVICE_URL/api/payments/reserve", body)).isEqualTo(202)
+            assertThat(saga.post("$PAYMENT_SERVICE_URL/api/payments/confirm", body)).isEqualTo(200)
         }
 
         assertThat(
@@ -33,7 +33,7 @@ class IdempotencyTest {
         assertThat(
             saga.queryInt(
                 Database.PAYMENT,
-                "select count(*) from outbox_events where aggregate_id = ? and event_type = 'PaymentReserved'",
+                "select count(*) from outbox_events where aggregate_id = ? and event_type = 'PaymentConfirmed'",
                 orderId
             )
         ).isEqualTo(1)
@@ -53,6 +53,26 @@ class IdempotencyTest {
         repeat(3) {
             assertThat(saga.post("$INVENTORY_SERVICE_URL/api/inventory/release", releaseBody)).isEqualTo(202)
         }
+        assertThat(saga.stock()).isEqualTo(DEMO_STOCK)
+    }
+
+    @Test
+    fun `a released stock hold can no longer be confirmed`() {
+        val orderId = UUID.randomUUID()
+        val reserveBody = """{"orderId":"$orderId","productId":"$DEMO_PRODUCT_ID","quantity":2}"""
+        val orderBody = """{"orderId":"$orderId"}"""
+
+        assertThat(saga.post("$INVENTORY_SERVICE_URL/api/inventory/reserve", reserveBody)).isEqualTo(202)
+        assertThat(saga.post("$INVENTORY_SERVICE_URL/api/inventory/release", orderBody)).isEqualTo(202)
+        assertThat(saga.post("$INVENTORY_SERVICE_URL/api/inventory/confirm", orderBody)).isEqualTo(202)
+
+        assertThat(
+            saga.queryInt(
+                Database.INVENTORY,
+                "select count(*) from outbox_events where aggregate_id = ? and event_type = 'InventoryConfirmFailed'",
+                orderId
+            )
+        ).isEqualTo(1)
         assertThat(saga.stock()).isEqualTo(DEMO_STOCK)
     }
 }

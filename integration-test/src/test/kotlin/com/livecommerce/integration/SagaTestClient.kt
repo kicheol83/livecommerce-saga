@@ -33,9 +33,9 @@ class SagaTestClient {
     private val httpClient = HttpClient.newHttpClient()
     private val objectMapper = ObjectMapper()
 
-    fun createOrder(quantity: Int, amount: String = "39000"): String {
+    fun createOrder(quantity: Int): String {
         val body = """
-            {"productId":"$DEMO_PRODUCT_ID","quantity":$quantity,"amount":$amount}
+            {"productId":"$DEMO_PRODUCT_ID","quantity":$quantity}
         """.trimIndent()
         val response = send(
             HttpRequest.newBuilder()
@@ -64,6 +64,49 @@ class SagaTestClient {
         val response = send(HttpRequest.newBuilder().uri(URI.create(url)).GET().build())
         assertThat(response.statusCode()).isEqualTo(200)
         return objectMapper.readTree(response.body())
+    }
+
+    fun submitPayment(orderId: String, paymentKey: String, amount: String? = null): Int {
+        val paidAmount = amount ?: fetchOrder(orderId).get("amount").decimalValue().toPlainString()
+        val body = """{"paymentKey":"$paymentKey","amount":$paidAmount}"""
+        return send(
+            HttpRequest.newBuilder()
+                .uri(URI.create("$ORDER_SERVICE_URL/api/orders/$orderId/payment"))
+                .header("Content-Type", "application/json")
+                .header(USER_ID_HEADER, TEST_USER_ID)
+                .POST(HttpRequest.BodyPublishers.ofString(body))
+                .build()
+        ).statusCode()
+    }
+
+    fun cancelOrder(orderId: String): Int {
+        return send(
+            HttpRequest.newBuilder()
+                .uri(URI.create("$ORDER_SERVICE_URL/api/orders/$orderId/cancel"))
+                .header(USER_ID_HEADER, TEST_USER_ID)
+                .POST(HttpRequest.BodyPublishers.noBody())
+                .build()
+        ).statusCode()
+    }
+
+    fun awaitPayable(orderId: String): String {
+        return pollUntilStatus(orderId, PAYABLE_OR_TERMINAL, Duration.ofSeconds(20))
+    }
+
+    fun approvalKey(): String {
+        return "fake_approve_${UUID.randomUUID()}"
+    }
+
+    fun declineKey(): String {
+        return "fake_decline_${UUID.randomUUID()}"
+    }
+
+    fun paymentCount(orderId: String): Int {
+        return queryInt(Database.PAYMENT, "select count(*) from payments where order_id = ?", UUID.fromString(orderId))
+    }
+
+    fun awaitStock(expected: Int): Boolean {
+        return waitUntil(Duration.ofSeconds(15)) { stock() == expected }
     }
 
     fun orderStatus(orderId: String): String {
@@ -201,6 +244,7 @@ class SagaTestClient {
         const val DEMO_STOCK = 100
         val DEMO_PRODUCT_ID: UUID = UUID.fromString("11111111-1111-1111-1111-111111111111")
         val TERMINAL_STATUSES = setOf("COMPLETED", "CANCELLED")
+        val PAYABLE_OR_TERMINAL = setOf("AWAITING_PAYMENT", "COMPLETED", "CANCELLED")
         private const val POLL_INTERVAL_MS = 500L
     }
 }

@@ -120,7 +120,7 @@ class AuthFlowTest {
     }
 
     private fun orderBody(): String {
-        return """{"productId":"$DEMO_PRODUCT_ID","quantity":1,"amount":39000}"""
+        return """{"productId":"$DEMO_PRODUCT_ID","quantity":1}"""
     }
 
     private fun refreshCookie(response: HttpResponse<String>): String {

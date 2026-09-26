@@ -3,7 +3,6 @@ package com.livecommerce.integration
 import com.livecommerce.integration.SagaTestClient.Companion.DEMO_PRODUCT_ID
 import com.livecommerce.integration.SagaTestClient.Companion.DEMO_STOCK
 import com.livecommerce.integration.SagaTestClient.Companion.LIVE_SERVICE_URL
-import com.livecommerce.integration.SagaTestClient.Companion.TERMINAL_STATUSES
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -26,15 +25,16 @@ class LiveSessionTest {
 
         assertThat(session.get("productId").asText()).isEqualTo(DEMO_PRODUCT_ID.toString())
         assertThat(session.get("stock").asInt()).isEqualTo(DEMO_STOCK)
+        assertThat(session.get("price").asInt()).isEqualTo(39000)
         assertThat(Instant.parse(session.get("endsAt").asText())).isAfter(Instant.now())
     }
 
     @Test
-    fun `reserving inventory publishes a stock changed event`() {
+    fun `holding stock publishes a stock changed event`() {
         val startedAt = Timestamp.from(Instant.now().minusSeconds(1))
         val orderId = saga.createOrder(quantity = 1)
 
-        assertThat(saga.pollUntilStatus(orderId, TERMINAL_STATUSES, Duration.ofSeconds(20))).isEqualTo("COMPLETED")
+        assertThat(saga.awaitPayable(orderId)).isEqualTo("AWAITING_PAYMENT")
 
         val published = saga.waitUntil(Duration.ofSeconds(15)) {
             saga.queryInt(
@@ -45,5 +45,6 @@ class LiveSessionTest {
             ) > 0
         }
         assertThat(published).isTrue()
+        assertThat(saga.cancelOrder(orderId)).isEqualTo(200)
     }
 }
