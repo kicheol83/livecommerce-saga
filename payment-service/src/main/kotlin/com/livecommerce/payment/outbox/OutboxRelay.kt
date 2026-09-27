@@ -4,12 +4,14 @@ import com.livecommerce.common.outbox.OutboxStatus
 import org.slf4j.LoggerFactory
 import org.springframework.data.domain.PageRequest
 import org.springframework.kafka.core.KafkaTemplate
+import org.springframework.kafka.support.SendResult
 import org.springframework.kafka.support.KafkaHeaders
 import org.springframework.messaging.Message
 import org.springframework.messaging.support.MessageBuilder
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit
 
 @Component
@@ -24,21 +26,33 @@ class OutboxRelay(
     @Transactional
     fun relay() {
         val pending = outboxEventRepository.findPendingForUpdate(PageRequest.of(0, BATCH_SIZE))
-        val sends = pending.map { event -> event to runCatching { kafkaTemplate.send(toMessage(event)) } }
-        for ((event, send) in sends) {
+        val inFlight = mutableListOf<Pair<OutboxEventEntity, CompletableFuture<SendResult<String, String>>>>()
+        for (event in pending) {
             try {
-                send.getOrThrow().get(SEND_TIMEOUT_SECONDS, TimeUnit.SECONDS)
-                event.status = OutboxStatus.PUBLISHED
+                inFlight += event to kafkaTemplate.send(toMessage(event))
             } catch (ex: Exception) {
-                if (ex is InterruptedException) {
-                    Thread.currentThread().interrupt()
-                }
-                event.attempts += 1
-                event.lastError = (ex.message ?: ex.javaClass.simpleName).take(MAX_ERROR_LENGTH)
-                log.warn("Outbox event {} not delivered (attempt {}): {}", event.id, event.attempts, event.lastError)
+                recordFailure(event, ex)
                 break
             }
         }
+        for ((event, send) in inFlight) {
+            try {
+                send.get(SEND_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                event.status = OutboxStatus.PUBLISHED
+            } catch (ex: Exception) {
+                recordFailure(event, ex)
+                break
+            }
+        }
+    }
+
+    private fun recordFailure(event: OutboxEventEntity, ex: Exception) {
+        if (ex is InterruptedException) {
+            Thread.currentThread().interrupt()
+        }
+        event.attempts += 1
+        event.lastError = (ex.message ?: ex.javaClass.simpleName).take(MAX_ERROR_LENGTH)
+        log.warn("Outbox event {} not delivered (attempt {}): {}", event.id, event.attempts, event.lastError)
     }
 
     private fun toMessage(event: OutboxEventEntity): Message<String> {
