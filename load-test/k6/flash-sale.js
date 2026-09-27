@@ -23,6 +23,9 @@ const HOLD_WAIT_SECONDS = Number(__ENV.HOLD_WAIT_SECONDS || 60);
 const COMPLETION_WAIT_SECONDS = Number(__ENV.COMPLETION_WAIT_SECONDS || 90);
 const POLL_INTERVAL_SECONDS = Number(__ENV.POLL_INTERVAL_SECONDS || 0.5);
 
+const MAX_LOGGED_REJECTIONS = 5;
+let rejectedOrdersLogged = 0;
+
 const timeToStockHold = new Trend("time_to_stock_hold", true);
 const timeToCompletion = new Trend("time_to_completion", true);
 const heldOrders = new Counter("orders_stock_held");
@@ -78,6 +81,10 @@ export default function (data) {
 
   const created = createOrder(token, 1);
   if (!check(created, { "order accepted": (response) => response.status === 201 })) {
+    if (rejectedOrdersLogged < MAX_LOGGED_REJECTIONS) {
+      rejectedOrdersLogged += 1;
+      console.warn(`create_order rejected: status=${created.status} body=${String(created.body).slice(0, 300)}`);
+    }
     return;
   }
   const orderId = created.json("orderId");
@@ -114,15 +121,16 @@ export function teardown(data) {
   const completedDelta = completedCount(orderSummary(admin)) - data.before.completed;
   const confirmedDelta = confirmedCount(paymentSummary(admin)) - data.before.confirmed;
 
+  const sellable = STOCK + data.before.heldQuantity;
   console.log(
-    `stock=${STOCK} sold=${soldDelta} completed=${completedDelta} charged=${confirmedDelta} ` +
-      `available=${product.quantityAvailable} held=${product.heldQuantity}`
+    `stock=${STOCK} heldBefore=${data.before.heldQuantity} sellable=${sellable} sold=${soldDelta} ` +
+      `completed=${completedDelta} charged=${confirmedDelta} available=${product.quantityAvailable} held=${product.heldQuantity}`
   );
 
   check(
     product,
     {
-      "no oversell: sold units never exceed stock": () => soldDelta <= STOCK,
+      "no oversell: sold units never exceed stock on sale plus holds released during the run": () => soldDelta <= sellable,
       "available stock never goes negative": (value) => value.quantityAvailable >= 0,
       "stock is conserved: available + held + sold equals what was put on sale": (value) =>
         value.quantityAvailable + value.heldQuantity + soldDelta === STOCK + data.before.heldQuantity,
