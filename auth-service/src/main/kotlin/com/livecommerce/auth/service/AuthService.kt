@@ -6,6 +6,7 @@ import com.livecommerce.auth.domain.RefreshTokenRepository
 import com.livecommerce.auth.domain.UserAccount
 import com.livecommerce.auth.domain.UserAccountRepository
 import com.livecommerce.auth.domain.UserRole
+import com.livecommerce.common.shipping.ShippingAddress
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -91,6 +92,13 @@ class AuthService(
         }
         val stored = refreshTokens.findByTokenHashForUpdate(tokenService.hash(rawToken)) ?: return
         refreshTokens.revokeFamily(stored.familyId, Instant.now())
+    }
+
+    @Transactional
+    fun changeShippingAddress(userId: UUID, address: ShippingAddress): UserAccount {
+        val user = users.findById(userId).orElseThrow { AuthException(AuthError.USER_NOT_FOUND) }
+        user.changeShippingAddress(address)
+        return user
     }
 
     @Transactional(readOnly = true)

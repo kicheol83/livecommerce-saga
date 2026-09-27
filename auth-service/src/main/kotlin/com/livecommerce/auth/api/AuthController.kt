@@ -1,5 +1,6 @@
 package com.livecommerce.auth.api
 
+import com.livecommerce.auth.api.dto.ErrorResponse
 import com.livecommerce.auth.api.dto.LoginRequest
 import com.livecommerce.auth.api.dto.SignupRequest
 import com.livecommerce.auth.api.dto.TokenResponse
@@ -7,6 +8,7 @@ import com.livecommerce.auth.api.dto.UserResponse
 import com.livecommerce.auth.config.AuthProperties
 import com.livecommerce.auth.service.AuthService
 import com.livecommerce.auth.service.AuthSession
+import com.livecommerce.common.shipping.ShippingAddress
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
 import jakarta.validation.Valid
@@ -18,6 +20,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal
 import org.springframework.security.oauth2.jwt.Jwt
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
@@ -58,6 +61,17 @@ class AuthController(
     @GetMapping("/me")
     fun me(@AuthenticationPrincipal jwt: Jwt): UserResponse {
         return UserResponse.from(authService.currentUser(UUID.fromString(jwt.subject)))
+    }
+
+    @PutMapping("/me/shipping-address")
+    fun changeShippingAddress(@AuthenticationPrincipal jwt: Jwt, @RequestBody request: ShippingAddress): ResponseEntity<Any> {
+        val address = request.normalized()
+        val violations = address.violations()
+        if (violations.isNotEmpty()) {
+            return ResponseEntity.badRequest()
+                .body(ErrorResponse("VALIDATION_FAILED", "Shipping address is invalid", violations))
+        }
+        return ResponseEntity.ok(UserResponse.from(authService.changeShippingAddress(UUID.fromString(jwt.subject), address)))
     }
 
     private fun respond(session: AuthSession, response: HttpServletResponse): TokenResponse {

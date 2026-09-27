@@ -1,6 +1,7 @@
 package com.livecommerce.auth.api.dto
 
 import com.livecommerce.auth.domain.UserAccount
+import com.livecommerce.common.shipping.ShippingAddress
 import jakarta.validation.constraints.Email
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.Pattern
@@ -33,11 +34,12 @@ data class UserResponse(
     val userId: UUID,
     val email: String,
     val nickname: String,
-    val role: String
+    val role: String,
+    val shippingAddress: ShippingAddress?
 ) {
     companion object {
         fun from(user: UserAccount): UserResponse {
-            return UserResponse(user.id, user.email, user.nickname, user.role.name)
+            return UserResponse(user.id, user.email, user.nickname, user.role.name, user.shippingAddress())
         }
     }
 }
