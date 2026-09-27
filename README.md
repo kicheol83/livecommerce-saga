@@ -118,14 +118,24 @@ Tez rad etishning ongli kelishuvi: agar qulfsiz o'qish "0" ko'rgan paytda boshqa
 
 O'lchov usulidagi o'zgarish: birinchi o'lchovda k6 xaridorni 15–20 soniyadan keyin "tashlab ketgan" deb hisoblagan va holatni har 250 ms'da so'ragan. Shu sababli ba'zi yakunlangan buyurtmalar k6'da hisobga olinmagan va polling'ning o'zi yuk bo'lgan. Keyingi o'lchovlarda kutish 60/90 soniya, polling esa 500 ms. Bu "keyin" natijalarini biroz yaxshilaydi, shuning uchun jadvalda bu ham qayd etilgan.
 
-| Ko'rsatkich (100 dona, 1000 urinish, 200 VU) | Oldin | Keyin |
+O'lchov usuli: har bir konfiguratsiya uchun avval bitta "qizdirish" yugurishi qilinadi va natijasi tashlab yuboriladi, keyin uchta o'lchov olinadi va ularning medianasi yoziladi. Bitta noutbukda yugurishlar orasidagi tebranish ±25% gacha yetadi: qayta ishga tushirilgan servisdan keyingi birinchi yugurish JIT kompilyatsiyasi va "sovuq" ulanish pool'lari tufayli keyingilaridan bir necha barobar sekin bo'lgan.
+
+| Ko'rsatkich (100 dona, 1000 urinish, 200 VU) | Oldin | Keyin (3 o'lchov medianasi) |
 | --- | --- | --- |
-| Invariantlar | ✓ 5/5 | _(to'ldiriladi)_ |
-| Sotildi / to'landi | 100 / 100 | _(to'ldiriladi)_ |
-| HTTP xatolar | 0 / 42 448 | _(to'ldiriladi)_ |
-| `create_order` p95 | 5.72 s | _(to'ldiriladi)_ |
-| Stok ushlanguncha p95 | 17.77 s (k6 15 s dan keyin kutmagan, kesilgan qiymat) | _(to'ldiriladi)_ |
-| Yakunlanguncha p95 | 33.55 s (100 tadan faqat 47 tasi o'lchangan) | _(to'ldiriladi)_ |
+| Invariantlar | ✓ 5/5 | ✓ 5/5 (har uchala o'lchovda) |
+| Sotildi / to'landi | 100 / 100 | 100 / 100 |
+| HTTP xatolar | 0 / 42 448 | 0 |
+| `create_order` p95 | 5.72 s | 2.68 s (−53%) |
+| `submit_payment` p95 | 0.71 s | 0.63 s |
+| Stok ushlanguncha p95 | 17.77 s (k6 15 s dan keyin kutmagan, kesilgan qiymat) | 4.80 s |
+| Yakunlanguncha p95 | 33.55 s (100 tadan faqat 47 tasi o'lchangan) | 11.04 s |
+| Butun sotuv davomiyligi | 1 m 27 s | ~23 s (−74%) |
+
+"Oldin" ustunidagi kechikishlar kesilgan: k6 sekin buyurtmalarni kutmagan va ular statistikaga kirmagan. Shuning uchun haqiqiy boshlang'ich holat jadvaldagidan yomonroq bo'lgan va yaxshilanish foizlari pastki chegara hisoblanadi.
+
+Tajriba bilan rad etilgan gumon: qolgan kechikishning sababi inventory'ning DB ulanishlari (Hikari standart 10 ta) yetishmasligi deb taxmin qilingan edi. Kod o'zgartirilmasdan, `SPRING_DATASOURCE_HIKARI_MAXIMUMPOOLSIZE=30` bilan xuddi shu usulda o'lchandi: `create_order` p95 2.77 s, stok ushlanishi p95 5.41 s, yakunlanish p95 10.46 s. Farq tebranish chegarasida qoldi. Sozlama kodga kiritilmadi, chunki foyda keltirmaydi va resurs sarflaydi.
+
+Keyingi imkoniyat: qolgan kechikishning asosiy qismi xarid so'rovi ichida inventory'ga qilinadigan sinxron REST chaqiruvidan va bitta mashinadagi CPU raqobatidan keladi. Stok ushlashni ham outbox orqali Kafka buyrug'iga aylantirish `create_order`ni bir necha o'n millisekundgacha qisqartiradi, lekin Saga'ning birinchi qadamini asinxron qiladi. Bu arxitekturaviy o'zgarish bo'lgani uchun joriy loyiha doirasida qilinmadi.
 
 | Ko'rsatkich (500 tomoshabin) | Oldin | Keyin |
 | --- | --- | --- |
