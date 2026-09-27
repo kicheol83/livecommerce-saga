@@ -1,0 +1,42 @@
+server:
+  port: 8086
+
+spring:
+  application:
+    name: delivery-service
+  datasource:
+    url: jdbc:postgresql://localhost:5459/delivery_db
+    username: delivery_user
+    password: delivery_pass
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+    locations: classpath:db/migration/delivery
+  kafka:
+    bootstrap-servers: localhost:9094
+    consumer:
+      group-id: delivery-service
+      auto-offset-reset: earliest
+    listener:
+      observation-enabled: true
+
+delivery:
+  carrier-name: 라이브택배
+  webhook-secret: local-courier-webhook-secret
+  webhook-tolerance-seconds: 300
+
+courier:
+  enabled: true
+  step-seconds: 6
+  webhook-url: http://localhost:8086/api/deliveries/webhooks/courier
+
+management:
+  tracing:
+    sampling:
+      probability: 1.0
+  otlp:
+    tracing:
+      endpoint: http://localhost:4318/v1/traces
