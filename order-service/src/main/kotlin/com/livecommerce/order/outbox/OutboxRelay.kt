@@ -20,13 +20,14 @@ class OutboxRelay(
 
     private val log = LoggerFactory.getLogger(OutboxRelay::class.java)
 
-    @Scheduled(fixedDelay = 500)
+    @Scheduled(fixedDelayString = "\${outbox.poll-interval-ms:100}")
     @Transactional
     fun relay() {
         val pending = outboxEventRepository.findPendingForUpdate(PageRequest.of(0, BATCH_SIZE))
-        for (event in pending) {
+        val sends = pending.map { event -> event to runCatching { kafkaTemplate.send(toMessage(event)) } }
+        for ((event, send) in sends) {
             try {
-                kafkaTemplate.send(toMessage(event)).get(SEND_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                send.getOrThrow().get(SEND_TIMEOUT_SECONDS, TimeUnit.SECONDS)
                 event.status = OutboxStatus.PUBLISHED
             } catch (ex: Exception) {
                 if (ex is InterruptedException) {
@@ -51,7 +52,7 @@ class OutboxRelay(
     }
 
     companion object {
-        private const val BATCH_SIZE = 50
+        private const val BATCH_SIZE = 100
         private const val SEND_TIMEOUT_SECONDS = 15L
         private const val MAX_ERROR_LENGTH = 500
     }

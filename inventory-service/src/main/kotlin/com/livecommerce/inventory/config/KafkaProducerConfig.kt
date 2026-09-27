@@ -24,7 +24,8 @@ class KafkaProducerConfig(
             ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG to true,
             ProducerConfig.MAX_BLOCK_MS_CONFIG to 5000,
             ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG to 5000,
-            ProducerConfig.DELIVERY_TIMEOUT_MS_CONFIG to 10000
+            ProducerConfig.DELIVERY_TIMEOUT_MS_CONFIG to 10000,
+            ProducerConfig.LINGER_MS_CONFIG to 5
         )
         return DefaultKafkaProducerFactory(props)
     }
