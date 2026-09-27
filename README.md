@@ -124,15 +124,19 @@ O'lchov usulidagi o'zgarish: birinchi o'lchovda k6 xaridorni 15–20 soniyadan k
 | Sotildi / to'landi | 100 / 100 | _(to'ldiriladi)_ |
 | HTTP xatolar | 0 / 42 448 | _(to'ldiriladi)_ |
 | `create_order` p95 | 5.72 s | _(to'ldiriladi)_ |
-| Stok ushlanguncha p95 | 17.77 s | _(to'ldiriladi)_ |
-| Yakunlanguncha p95 | 33.55 s (k6 kesgan) | _(to'ldiriladi)_ |
+| Stok ushlanguncha p95 | 17.77 s (k6 15 s dan keyin kutmagan, kesilgan qiymat) | _(to'ldiriladi)_ |
+| Yakunlanguncha p95 | 33.55 s (100 tadan faqat 47 tasi o'lchangan) | _(to'ldiriladi)_ |
 
 | Ko'rsatkich (500 tomoshabin) | Oldin | Keyin |
 | --- | --- | --- |
-| STOMP ulanishi | 571 / 571 | _(to'ldiriladi)_ |
-| Ulanish p95 | 423 ms | _(to'ldiriladi)_ |
-| "Tomoshabinlar soni" xabarlari | 454 583 | _(to'ldiriladi)_ |
-| Stok yangilanishi yetkazilishi | o'lchanmadi (test stokni tiklamagan) | _(to'ldiriladi)_ |
+| STOMP ulanishi | 571 / 571 | 500 / 500 |
+| Ulanish p95 | 423 ms | 1.55 s (500 ulanish 30 soniyada ochiladi) |
+| "Tomoshabinlar soni" xabarlari | 454 583 | **8 151 (−98%)** |
+| Stok yangilanishi yetkazilishi | o'lchanmadi (test stokni tiklamagan) | **120 000 / ~121 000 (99.2%)** |
+
+Kesilgan o'lchov bo'yicha eslatma: birinchi o'lchovda k6 buyurtmani 15–20 soniyadan keyin kutmay qo'ygan, shuning uchun sekin buyurtmalar kechikish statistikasiga kirmagan. Tuzatilgan k6 bilan qilingan keyingi o'lchovlar barcha buyurtmalarni hisoblaydi. Shu sababli flash-sale kechikishlari "oldin" va "keyin" ustunlari orasida to'g'ridan-to'g'ri taqqoslanmaydi.
+
+Testni ishonchli qilish bo'yicha eslatma: oversell invarianti dastlab `sotilgan ≤ STOCK` edi. Real stack'dagi o'lchovda u 101 > 100 deb yiqildi, stokning saqlanishi invarianti esa o'tdi: test boshida oldingi yugurishdan qolgan 1 dona ushlangan stok bor edi, u test davomida bo'shab, qonuniy sotildi. Invariant `sotilgan ≤ STOCK + testdan oldin ushlangan` deb tuzatildi.
 
 ## Nima buziladi va qanday tiklanadi
 
