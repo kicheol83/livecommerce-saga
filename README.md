@@ -40,13 +40,14 @@ Nega shu tartib: flash-sale'da mahsulot tugab qolishi odatiy holat. Agar avval p
 
 ```powershell
 .\gradlew assemble
-docker compose up -d postgres-order postgres-payment postgres-inventory postgres-auth kafka jaeger
+docker compose up -d postgres-order postgres-payment postgres-inventory postgres-auth postgres-delivery kafka jaeger
 & "$env:JAVA_HOME\bin\java.exe" -jar auth-service\build\libs\auth-service-0.1.0.jar
 & "$env:JAVA_HOME\bin\java.exe" -jar api-gateway\build\libs\api-gateway-0.1.0.jar
 & "$env:JAVA_HOME\bin\java.exe" -jar order-service\build\libs\order-service-0.1.0.jar
 & "$env:JAVA_HOME\bin\java.exe" -jar payment-service\build\libs\payment-service-0.1.0.jar
 & "$env:JAVA_HOME\bin\java.exe" -jar inventory-service\build\libs\inventory-service-0.1.0.jar
 & "$env:JAVA_HOME\bin\java.exe" -jar live-service\build\libs\live-service-0.1.0.jar
+& "$env:JAVA_HOME\bin\java.exe" -jar delivery-service\build\libs\delivery-service-0.1.0.jar
 ```
 
 Har bir servis alohida PowerShell oynasida ishga tushiriladi. Tashqi mijozlar uchun yagona kirish nuqtasi — gateway (`http://localhost:8080`).
@@ -66,7 +67,7 @@ Testlar ishlab turgan stackka (yuqoridagi "Lokal ishga tushirish" bo'limi) real 
 .\gradlew :integration-test:chaosTest
 ```
 
-`test` baxtli yo'l, stok yetishmaganda compensation, takroriy so'rovlarga idempotentlik, live-service'ning stok ma'lumoti va gateway orqali to'liq autentifikatsiya oqimini tekshiradi. `chaosTest` esa Kafka va bazalarni haqiqatan to'xtatib, qayta ishga tushiradi (bir necha daqiqa davom etadi).
+`test` baxtli yo'l, stok yetishmaganda compensation, takroriy so'rovlarga idempotentlik, live-service'ning stok ma'lumoti, gateway orqali autentifikatsiya, admin API, yetkazib berish va kuryer webhook xavfsizligini tekshiradi. `chaosTest` esa Kafka va bazalarni haqiqatan to'xtatib, qayta ishga tushiradi (bir necha daqiqa davom etadi).
 
 ## Nima buziladi va qanday tiklanadi
 
@@ -123,6 +124,24 @@ Chatda muallif nomi mijoz yuborgan matndan emas, STOMP `CONNECT` paytida tekshir
 Demo admin hisobi birinchi ishga tushirishda avtomatik yaratiladi: `admin@livecommerce.local` / `admin1234!`.
 
 Cheklov: imzolash kaliti har ishga tushishda yangidan yaratiladi. Bu access token'larni bekor qiladi, lekin refresh token'lar bazada saqlangani uchun foydalanuvchi sezmasdan yangi token oladi. Production'da kalit tashqi saqlovdan (KMS yoki Vault) yuklanishi kerak.
+
+## Yetkazib berish (delivery-service)
+
+Buyurtma `COMPLETED` holatiga o'tganda order-service `OrderCompleted` hodisasini **o'z outbox'i orqali**, holat o'zgarishi bilan bitta tranzaksiyada yozadi. `delivery-service` (port 8086, o'z bazasi bilan) bu hodisadan yetkazib berishni yaratadi: kuzatuv raqami beriladi va jo'natma kuryerga topshiriladi. Yetkazib berish manzili buyurtma berilgan paytda buyurtmaga "surat" (snapshot) sifatida ko'chiriladi, shuning uchun profil keyinroq o'zgarsa ham eski buyurtmalarga ta'sir qilmaydi.
+
+Holatlar: `PREPARING` (상품 준비 중) → `SHIPPED` (배송 시작) → `IN_TRANSIT` (간선 이동) → `OUT_FOR_DELIVERY` (배송 출발) → `DELIVERED` (배송 완료).
+
+Kuryer holat o'zgarishlarini `POST /api/deliveries/webhooks/courier` webhook'i orqali yuboradi. Qabul qiluvchi haqiqiy kuryer integratsiyasida uchraydigan muammolarni hisobga oladi:
+
+| Muammo | Yechim |
+| --- | --- |
+| Soxta so'rov | `X-Courier-Signature: sha256=HMAC(secret, timestamp.body)`, `MessageDigest.isEqual` bilan vaqtga bog'liq bo'lmagan taqqoslash |
+| Ushlab qolingan so'rovni qayta yuborish | `X-Courier-Timestamp` 5 daqiqadan eski bo'lsa, rad etiladi |
+| Kuryer bir hodisani qayta yuboradi | `event_id` unikal, takror `DUPLICATE` deb qaytariladi va qayta ishlanmaydi |
+| Hodisalar tartibsiz keladi | Kech kelgan eski hodisa tarixga yoziladi (`RECORDED_OUT_OF_ORDER`), lekin holatni orqaga qaytarmaydi |
+| Bir jo'natma uchun parallel webhook'lar | Yetkazib berish qatori `SELECT ... FOR UPDATE` bilan qulflanadi |
+
+Webhook gateway'da JWT'siz ochiq (kuryerda foydalanuvchi tokeni yo'q), uni imzo himoya qiladi. Demo uchun kuryer simulyatori bor: u tashqi kompaniya kabi o'z holatini alohida jadvalda saqlaydi va har bir qadamni imzolangan HTTP so'rov bilan xuddi shu webhook endpoint'iga yuboradi. Hodisa identifikatori barqaror (`kuzatuv raqami + qadam`), shuning uchun qayta yuborilgan hodisa ham takror sifatida taniladi. Qadamlar orasidagi vaqt `courier.step-seconds` bilan sozlanadi.
 
 ## Admin API
 
@@ -192,4 +211,4 @@ Buyurtma holatini real vaqtda kuzatish uchun WebSocket'ga ulaning: `ws://localho
 
 ## Loyihaning holati
 
-Saga + Outbox oqimi, idempotentlik, timeout asosidagi tiklanish, distributed tracing, chaos testlari, live efir servisi, frontend, autentifikatsiya va API Gateway tayyor. Toss Payments integratsiyasi (backend va frontend) hamda stokni avval ushlab qoladigan Saga tayyor. Admin API va admin paneli tayyor. Keyingi bosqichlar: yetkazib berish kuzatuvi (내 주문), k6 yuklama testi.
+Saga + Outbox oqimi, idempotentlik, timeout asosidagi tiklanish, distributed tracing, chaos testlari, live efir servisi, frontend, autentifikatsiya va API Gateway tayyor. Toss Payments integratsiyasi (backend va frontend) hamda stokni avval ushlab qoladigan Saga tayyor. Admin API, admin paneli va yetkazib berish backend'i tayyor. Keyingi bosqichlar: "내 주문" sahifasi (frontend), k6 yuklama testi.
