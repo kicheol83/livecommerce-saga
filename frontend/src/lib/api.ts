@@ -1,5 +1,5 @@
-import { authFetch } from "./authStore";
-import type { ChatMessage, LiveSession, OrderSnapshot, OrderStatus } from "./types";
+import { authFetch, type AuthUser } from "./authStore";
+import type { ChatMessage, Delivery, LiveSession, OrderPage, OrderSnapshot, OrderStatus, ShippingAddress } from "./types";
 
 type OrderResponse = {
   orderId: string;
@@ -62,7 +62,11 @@ export function fetchChatHistory(): Promise<ChatMessage[]> {
   return requestJson<ChatMessage[]>("/api/live/chat");
 }
 
-export async function createOrder(input: { productId: string; quantity: number }): Promise<OrderSnapshot> {
+export async function createOrder(input: {
+  productId: string;
+  quantity: number;
+  shippingAddress: ShippingAddress;
+}): Promise<OrderSnapshot> {
   const response = await authFetch("/api/orders", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -95,5 +99,37 @@ export async function cancelOrder(orderId: string): Promise<OrderActionResult> {
     return toActionResult(response);
   } catch {
     return { ok: false, status: 0, code: "NETWORK_ERROR" };
+  }
+}
+
+export type SaveAddressResult = { ok: true; user: AuthUser } | { ok: false; code: string; fields: Record<string, string> };
+
+export async function fetchMyOrders(page: number, size = 10): Promise<OrderPage> {
+  const response = await authFetch(`/api/orders?page=${page}&size=${size}`);
+  return parse<OrderPage>(response);
+}
+
+export async function fetchDelivery(orderId: string): Promise<Delivery | null> {
+  const response = await authFetch(`/api/deliveries/${encodeURIComponent(orderId)}`);
+  if (response.status === 404) {
+    return null;
+  }
+  return parse<Delivery>(response);
+}
+
+export async function saveShippingAddress(address: ShippingAddress): Promise<SaveAddressResult> {
+  try {
+    const response = await authFetch("/api/auth/me/shipping-address", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(address)
+    });
+    if (response.ok) {
+      return { ok: true, user: (await response.json()) as AuthUser };
+    }
+    const body = (await response.json().catch(() => ({}))) as { code?: string; fields?: Record<string, string> };
+    return { ok: false, code: body.code ?? "UNKNOWN", fields: body.fields ?? {} };
+  } catch {
+    return { ok: false, code: "NETWORK_ERROR", fields: {} };
   }
 }

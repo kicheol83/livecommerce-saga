@@ -7,12 +7,13 @@ import { useCountdown } from "@/hooks/useCountdown";
 import { useLiveChannel } from "@/hooks/useLiveChannel";
 import { useOrderTracker } from "@/hooks/useOrderTracker";
 import { cancelOrder, createOrder, fetchChatHistory, fetchOrder, fetchSession } from "@/lib/api";
-import { logout } from "@/lib/authStore";
+import { logout, updateCurrentUser, type AuthUser } from "@/lib/authStore";
 import { MAX_ORDER_QUANTITY } from "@/lib/config";
 import { isTerminal } from "@/lib/orderProgress";
-import type { ChatMessage, LiveSession, OrderSnapshot, StockChanged } from "@/lib/types";
+import type { ChatMessage, LiveSession, OrderSnapshot, ShippingAddress, StockChanged } from "@/lib/types";
 import { ChatComposer } from "./ChatComposer";
 import { AccountMenu } from "./AccountMenu";
+import { AddressSheet } from "./AddressSheet";
 import { ChatFeed } from "./ChatFeed";
 import { LiveHeader } from "./LiveHeader";
 import { LiveStage } from "./LiveStage";
@@ -21,7 +22,7 @@ import { ProductPanel } from "./ProductPanel";
 import { ConnectionNotice, SessionError, SessionSkeleton, Toast } from "./StatusOverlays";
 
 type LoadState = "loading" | "ready" | "error";
-type OrderPhase = "idle" | "submitting" | "tracking";
+type OrderPhase = "idle" | "address" | "submitting" | "tracking";
 
 const CHAT_HISTORY_LIMIT = 50;
 const TOAST_DURATION_MS = 3500;
@@ -113,29 +114,51 @@ export function LiveRoom() {
     setQuantity((current) => Math.min(current, maxQuantity));
   }, [maxQuantity]);
 
+  const startOrder = useCallback(
+    async (shippingAddress: ShippingAddress) => {
+      if (session === null) {
+        return;
+      }
+      setOrderedQuantity(quantity);
+      setCreatedOrder(null);
+      setOrderPhase("submitting");
+      try {
+        const order = await createOrder({ productId: session.productId, quantity, shippingAddress });
+        setCreatedOrder(order);
+        setOrderPhase("tracking");
+      } catch {
+        setOrderPhase("idle");
+        setToast("주문을 접수하지 못했어요. 잠시 후 다시 시도해 주세요.");
+      }
+    },
+    [quantity, session]
+  );
+
   const handleBuy = useCallback(async () => {
     if (session === null || orderPhase !== "idle" || auth.status === "loading") {
       return;
     }
-    if (auth.status !== "authenticated") {
+    if (auth.status !== "authenticated" || auth.user === null) {
       router.push("/login?next=/");
       return;
     }
-    setOrderedQuantity(quantity);
-    setCreatedOrder(null);
-    setOrderPhase("submitting");
-    try {
-      const order = await createOrder({
-        productId: session.productId,
-        quantity
-      });
-      setCreatedOrder(order);
-      setOrderPhase("tracking");
-    } catch {
-      setOrderPhase("idle");
-      setToast("주문을 접수하지 못했어요. 잠시 후 다시 시도해 주세요.");
+    if (auth.user.shippingAddress === null) {
+      setOrderPhase("address");
+      return;
     }
-  }, [auth.status, orderPhase, quantity, router, session]);
+    await startOrder(auth.user.shippingAddress);
+  }, [auth.status, auth.user, orderPhase, router, session, startOrder]);
+
+  const handleAddressSaved = useCallback(
+    (user: AuthUser) => {
+      updateCurrentUser(user);
+      setOrderPhase("idle");
+      if (user.shippingAddress !== null) {
+        void startOrder(user.shippingAddress);
+      }
+    },
+    [startOrder]
+  );
 
   const handleCloseSheet = useCallback(() => {
     setOrderPhase("idle");
@@ -237,7 +260,8 @@ export function LiveRoom() {
                 void handleBuy();
               }}
             />
-            {orderPhase !== "idle" && (
+            {orderPhase === "address" && <AddressSheet onSaved={handleAddressSaved} onClose={handleCloseSheet} />}
+            {(orderPhase === "submitting" || orderPhase === "tracking") && (
               <OrderSheet
                 snapshot={orderPhase === "submitting" ? null : tracked}
                 productName={session.productName}

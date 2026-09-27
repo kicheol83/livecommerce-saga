@@ -1,7 +1,9 @@
 type TextFieldProps = {
   id: string;
   label: string;
-  type: "email" | "password" | "text";
+  type: "email" | "password" | "text" | "tel";
+  inputMode?: "text" | "numeric" | "tel";
+  placeholder?: string;
   value: string;
   autoComplete: string;
   hint?: string;
@@ -10,7 +12,7 @@ type TextFieldProps = {
   onBlur?: () => void;
 };
 
-export function TextField({ id, label, type, value, autoComplete, hint, error, onChange, onBlur }: TextFieldProps) {
+export function TextField({ id, label, type, value, autoComplete, inputMode, placeholder, hint, error, onChange, onBlur }: TextFieldProps) {
   const describedBy = error !== undefined ? `${id}-error` : hint !== undefined ? `${id}-hint` : undefined;
 
   return (
@@ -23,6 +25,8 @@ export function TextField({ id, label, type, value, autoComplete, hint, error, o
         type={type}
         value={value}
         autoComplete={autoComplete}
+        inputMode={inputMode}
+        placeholder={placeholder}
         onChange={(event) => onChange(event.target.value)}
         onBlur={onBlur}
         aria-invalid={error !== undefined}

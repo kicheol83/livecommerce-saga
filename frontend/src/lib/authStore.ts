@@ -1,3 +1,5 @@
+import type { ShippingAddress } from "./types";
+
 export type AuthRole = "USER" | "ADMIN";
 
 export type AuthUser = {
@@ -5,6 +7,7 @@ export type AuthUser = {
   email: string;
   nickname: string;
   role: AuthRole;
+  shippingAddress: ShippingAddress | null;
 };
 
 export type AuthState = {
@@ -113,6 +116,12 @@ export function getServerAuthState(): AuthState {
 
 export function getAccessToken(): string | null {
   return accessToken;
+}
+
+export function updateCurrentUser(user: AuthUser): void {
+  if (state.status === "authenticated") {
+    publish({ status: "authenticated", user });
+  }
 }
 
 export function startAuth(): void {

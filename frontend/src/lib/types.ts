@@ -42,3 +42,53 @@ export type OrderSnapshot = {
 };
 
 export type ConnectionState = "connecting" | "open" | "reconnecting";
+
+export type ShippingAddress = {
+  recipientName: string;
+  phone: string;
+  zipCode: string;
+  address1: string;
+  address2: string | null;
+};
+
+export type MyOrder = {
+  orderId: string;
+  productId: string;
+  status: OrderStatus;
+  quantity: number;
+  amount: number | null;
+  paymentDeadline: string | null;
+  failureReason: string | null;
+  shippingAddress: ShippingAddress | null;
+  createdAt: string;
+};
+
+export type OrderPage = {
+  items: MyOrder[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+};
+
+export type DeliveryStatus = "PREPARING" | "SHIPPED" | "IN_TRANSIT" | "OUT_FOR_DELIVERY" | "DELIVERED";
+
+export type TrackingEvent = {
+  eventId: string;
+  status: DeliveryStatus;
+  location: string;
+  description: string;
+  occurredAt: string;
+};
+
+export type Delivery = {
+  orderId: string;
+  status: DeliveryStatus;
+  carrier: string;
+  trackingNumber: string;
+  recipientName: string;
+  address: string;
+  orderedAt: string;
+  deliveredAt: string | null;
+  events: TrackingEvent[];
+};

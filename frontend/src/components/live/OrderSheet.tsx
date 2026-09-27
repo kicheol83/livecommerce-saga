@@ -5,6 +5,7 @@ import { useCountdown } from "@/hooks/useCountdown";
 import type { AuthUser } from "@/lib/authStore";
 import { formatRemaining } from "@/lib/format";
 import { failureMessage, outcomeOf, progressSteps } from "@/lib/orderProgress";
+import { addressLine } from "@/lib/shipping";
 import type { OrderSnapshot } from "@/lib/types";
 import { PaymentPanel } from "./PaymentPanel";
 import { SagaStepper } from "./SagaStepper";
@@ -94,6 +95,12 @@ export function OrderSheet({ snapshot, productName, quantity, user, cancelling, 
         <p className="mt-1 text-[14px] leading-relaxed text-ash tabular-nums" aria-live="polite">
           {description}
         </p>
+        {awaitingPayment && user?.shippingAddress != null && (
+          <p className="mt-3 rounded-[12px] bg-white px-3.5 py-2.5 text-[13px] leading-relaxed text-ash">
+            <span className="font-semibold text-pine">배송지</span> {user.shippingAddress.recipientName},{" "}
+            {addressLine(user.shippingAddress)}
+          </p>
+        )}
         <SagaStepper steps={progressSteps(snapshot)} />
         {showPayment && snapshot !== null && snapshot.amount !== null && user !== null && (
           <PaymentPanel
