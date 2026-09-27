@@ -1,9 +1,21 @@
 import { sleep } from "k6";
+import exec from "k6/execution";
 import { Counter, Rate, Trend } from "k6/metrics";
 import { WebSocket } from "k6/websockets";
-import { WS_URL, cancelOrder, createOrder, createUsers, waitForStatus } from "./lib/api.js";
+import {
+  ADMIN_EMAIL,
+  ADMIN_PASSWORD,
+  WS_URL,
+  cancelOrder,
+  createOrder,
+  createUsers,
+  login,
+  setProduct,
+  waitForStatus
+} from "./lib/api.js";
 
 const VIEWERS = Number(__ENV.VIEWERS || 300);
+const STOCK = Number(__ENV.STOCK || 1000);
 const HOLD_SECONDS = Number(__ENV.HOLD_SECONDS || 60);
 const RAMP_SECONDS = 30;
 const NUL = "\u0000";
@@ -51,10 +63,17 @@ function frame(command, headers) {
 }
 
 export function setup() {
+  setProduct(login(ADMIN_EMAIL, ADMIN_PASSWORD), STOCK);
   return { users: createUsers(5) };
 }
 
 export function viewer() {
+  const sessionEnd = exec.scenario.startTime + (RAMP_SECONDS + HOLD_SECONDS) * 1000;
+  const remaining = sessionEnd - Date.now();
+  if (remaining < 1000) {
+    sleep(10);
+    return;
+  }
   const openedAt = Date.now();
   let connected = false;
   let recorded = false;
@@ -97,7 +116,7 @@ export function viewer() {
   };
   setTimeout(() => {
     socket.close();
-  }, (HOLD_SECONDS + RAMP_SECONDS) * 1000);
+  }, remaining);
 }
 
 export function buyer(data) {

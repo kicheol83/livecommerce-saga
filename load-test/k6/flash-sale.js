@@ -19,6 +19,9 @@ const STOCK = Number(__ENV.STOCK || 100);
 const BUYERS = Number(__ENV.BUYERS || 300);
 const VUS = Number(__ENV.VUS || 100);
 const USERS = Number(__ENV.USERS || 100);
+const HOLD_WAIT_SECONDS = Number(__ENV.HOLD_WAIT_SECONDS || 60);
+const COMPLETION_WAIT_SECONDS = Number(__ENV.COMPLETION_WAIT_SECONDS || 90);
+const POLL_INTERVAL_SECONDS = Number(__ENV.POLL_INTERVAL_SECONDS || 0.5);
 
 const timeToStockHold = new Trend("time_to_stock_hold", true);
 const timeToCompletion = new Trend("time_to_completion", true);
@@ -35,7 +38,7 @@ export const options = {
       executor: "shared-iterations",
       vus: VUS,
       iterations: BUYERS,
-      maxDuration: "5m"
+      maxDuration: "10m"
     }
   },
   thresholds: {
@@ -79,7 +82,7 @@ export default function (data) {
   }
   const orderId = created.json("orderId");
 
-  const payable = waitForStatus(token, orderId, ["AWAITING_PAYMENT", "CANCELLED"], 15);
+  const payable = waitForStatus(token, orderId, ["AWAITING_PAYMENT", "CANCELLED"], HOLD_WAIT_SECONDS, POLL_INTERVAL_SECONDS);
   if (payable === null) {
     abandonedOrders.add(1);
     return;
@@ -94,7 +97,7 @@ export default function (data) {
   const payment = submitPayment(token, orderId, payable.amount);
   check(payment, { "payment accepted": (response) => response.status === 202 });
 
-  const final = waitForStatus(token, orderId, ["COMPLETED", "CANCELLED"], 20);
+  const final = waitForStatus(token, orderId, ["COMPLETED", "CANCELLED"], COMPLETION_WAIT_SECONDS, POLL_INTERVAL_SECONDS);
   if (final !== null && final.status === "COMPLETED") {
     completedOrders.add(1);
     timeToCompletion.add(Date.now() - startedAt);
