@@ -112,6 +112,52 @@ class SagaTestClient {
         return waitUntil(Duration.ofSeconds(15)) { stock() == expected }
     }
 
+    fun gateway(method: String, path: String, token: String?, body: String? = null): HttpResponse<String> {
+        val builder = HttpRequest.newBuilder().uri(URI.create("$GATEWAY_URL$path"))
+        if (token != null) {
+            builder.header("Authorization", "Bearer $token")
+        }
+        if (body != null) {
+            builder.header("Content-Type", "application/json")
+        }
+        val publisher = if (body == null) HttpRequest.BodyPublishers.noBody() else HttpRequest.BodyPublishers.ofString(body)
+        return send(builder.method(method, publisher).build())
+    }
+
+    fun readJson(response: HttpResponse<String>): JsonNode {
+        return objectMapper.readTree(response.body())
+    }
+
+    fun login(email: String, password: String): String {
+        val response = gateway("POST", "/api/auth/login", null, """{"email":"$email","password":"$password"}""")
+        assertThat(response.statusCode()).isEqualTo(200)
+        return readJson(response).get("accessToken").asText()
+    }
+
+    fun adminToken(): String {
+        return login(ADMIN_EMAIL, ADMIN_PASSWORD)
+    }
+
+    fun signupToken(): String {
+        val suffix = UUID.randomUUID().toString().replace("-", "").take(10)
+        val body = """{"email":"user-$suffix@test.local","password":"password-$suffix","nickname":"tester_$suffix"}"""
+        val response = gateway("POST", "/api/auth/signup", null, body)
+        assertThat(response.statusCode()).isEqualTo(201)
+        return readJson(response).get("accessToken").asText()
+    }
+
+    fun statusOf(url: String): Int {
+        return send(HttpRequest.newBuilder().uri(URI.create(url)).GET().build()).statusCode()
+    }
+
+    fun completedOrder(): String {
+        val orderId = createOrder(quantity = 1)
+        assertThat(awaitPayable(orderId)).isEqualTo("AWAITING_PAYMENT")
+        assertThat(submitPayment(orderId, approvalKey())).isEqualTo(202)
+        assertThat(pollUntilStatus(orderId, TERMINAL_STATUSES, Duration.ofSeconds(20))).isEqualTo("COMPLETED")
+        return orderId
+    }
+
     fun orderStatus(orderId: String): String {
         return fetchOrder(orderId).get("status").asText()
     }
@@ -243,6 +289,8 @@ class SagaTestClient {
         const val LIVE_SERVICE_URL = "http://localhost:8084"
         const val GATEWAY_URL = "http://localhost:8080"
         const val USER_ID_HEADER = "X-User-Id"
+        const val ADMIN_EMAIL = "admin@livecommerce.local"
+        const val ADMIN_PASSWORD = "admin1234!"
         val TEST_USER_ID: String = UUID.randomUUID().toString()
         const val DEMO_STOCK = 100
         val DEMO_PRODUCT_ID: UUID = UUID.fromString("11111111-1111-1111-1111-111111111111")
