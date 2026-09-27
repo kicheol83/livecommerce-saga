@@ -84,9 +84,12 @@ export function PaymentSuccess() {
         )}
       </div>
       <Link
-        href="/"
+        href="/me"
         className="mt-6 flex h-[52px] items-center justify-center rounded-[14px] bg-pine text-[16px] font-semibold text-frost"
       >
+        주문 내역 보기
+      </Link>
+      <Link href="/" className="mt-3 block text-center text-[14px] font-medium text-ash underline underline-offset-4">
         라이브로 돌아가기
       </Link>
     </AuthShell>

@@ -73,6 +73,13 @@ export function AccountMenu({ auth, onLogout }: AccountMenuProps) {
             <p className="text-[15px] font-semibold">{user.nickname}</p>
             <p className="truncate text-[13px] text-ash">{user.email}</p>
           </div>
+          <Link
+            href="/me"
+            role="menuitem"
+            className="flex h-10 w-full items-center rounded-[10px] px-3 text-left text-[14px] font-medium hover:bg-frost-300"
+          >
+            내 주문
+          </Link>
           {user.role === "ADMIN" && (
             <Link
               href="/admin"
