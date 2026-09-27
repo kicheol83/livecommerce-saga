@@ -9,6 +9,8 @@ import java.util.UUID
 interface OrderRepository : JpaRepository<Order, UUID> {
     fun findAllByStatus(status: OrderStatus, pageable: Pageable): Page<Order>
 
+    fun findAllByMemberId(memberId: UUID, pageable: Pageable): Page<Order>
+
     fun findTop50ByStatusInAndUpdatedAtBeforeOrderByUpdatedAtAsc(
         statuses: Collection<OrderStatus>,
         threshold: Instant

@@ -1,5 +1,9 @@
 package com.livecommerce.order.saga
 
+import com.livecommerce.common.events.EventType
+import com.livecommerce.common.events.KafkaTopics
+import com.livecommerce.common.events.OrderCompletedEvent
+import com.livecommerce.common.shipping.ShippingAddress
 import com.livecommerce.order.client.CancelPaymentRequest
 import com.livecommerce.order.client.ConfirmPaymentRequest
 import com.livecommerce.order.client.InventoryClient
@@ -8,6 +12,7 @@ import com.livecommerce.order.client.ReserveInventoryRequest
 import com.livecommerce.order.domain.Order
 import com.livecommerce.order.domain.OrderRepository
 import com.livecommerce.order.domain.OrderStatus
+import com.livecommerce.order.outbox.OutboxWriter
 import com.livecommerce.order.ws.OrderStatusPublisher
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
@@ -25,20 +30,26 @@ class OrderSagaOrchestrator(
     private val inventoryClient: InventoryClient,
     private val statusPublisher: OrderStatusPublisher,
     private val transactionTemplate: TransactionTemplate,
+    private val outboxWriter: OutboxWriter,
     @Value("\${saga.payment-window-seconds:300}") paymentWindowSeconds: Long
 ) {
 
     private val log = LoggerFactory.getLogger(OrderSagaOrchestrator::class.java)
     private val paymentWindow: Duration = Duration.ofSeconds(paymentWindowSeconds)
 
-    fun createOrder(memberId: UUID, productId: UUID, quantity: Int): Order {
+    fun createOrder(memberId: UUID, productId: UUID, quantity: Int, shipping: ShippingAddress): Order {
         val order = orderRepository.save(
             Order(
                 id = UUID.randomUUID(),
                 memberId = memberId,
                 productId = productId,
                 quantity = quantity,
-                status = OrderStatus.AWAITING_STOCK
+                status = OrderStatus.AWAITING_STOCK,
+                recipientName = shipping.recipientName,
+                recipientPhone = shipping.phone,
+                zipCode = shipping.zipCode,
+                addressLine1 = shipping.address1,
+                addressLine2 = shipping.address2
             )
         )
         statusPublisher.publish(order)
@@ -142,8 +153,21 @@ class OrderSagaOrchestrator(
     }
 
     fun onStockConfirmed(orderId: UUID) {
-        transition(orderId, setOf(OrderStatus.CONFIRMING_STOCK)) { it.markCompleted() }
-            ?.let { statusPublisher.publish(it) }
+        transition(orderId, setOf(OrderStatus.CONFIRMING_STOCK)) {
+            it.markCompleted()
+            publishCompletion(it)
+        }?.let { statusPublisher.publish(it) }
+    }
+
+    private fun publishCompletion(order: Order) {
+        val shipping = order.shippingAddress() ?: return
+        val amount = order.amount ?: return
+        outboxWriter.write(
+            order.id,
+            EventType.ORDER_COMPLETED,
+            KafkaTopics.ORDER_EVENTS,
+            OrderCompletedEvent(order.id, order.memberId, order.productId, order.quantity, amount, shipping, order.updatedAt)
+        )
     }
 
     fun onStockConfirmationFailed(orderId: UUID, reason: String) {

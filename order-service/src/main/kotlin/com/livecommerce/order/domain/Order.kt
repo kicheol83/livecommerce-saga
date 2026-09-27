@@ -1,5 +1,6 @@
 package com.livecommerce.order.domain
 
+import com.livecommerce.common.shipping.ShippingAddress
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
@@ -44,6 +45,21 @@ class Order(
 
     @Column(name = "retry_count", nullable = false)
     var retryCount: Int = 0,
+
+    @Column(name = "recipient_name")
+    val recipientName: String? = null,
+
+    @Column(name = "recipient_phone")
+    val recipientPhone: String? = null,
+
+    @Column(name = "zip_code")
+    val zipCode: String? = null,
+
+    @Column(name = "address_line1")
+    val addressLine1: String? = null,
+
+    @Column(name = "address_line2")
+    val addressLine2: String? = null,
 
     @Version
     var version: Long = 0,
@@ -92,6 +108,13 @@ class Order(
     fun recordRetry() {
         retryCount += 1
         updatedAt = Instant.now()
+    }
+
+    fun shippingAddress(): ShippingAddress? {
+        if (recipientName == null || recipientPhone == null || zipCode == null || addressLine1 == null) {
+            return null
+        }
+        return ShippingAddress(recipientName, recipientPhone, zipCode, addressLine1, addressLine2)
     }
 
     fun isPaymentWindowOpen(now: Instant): Boolean {

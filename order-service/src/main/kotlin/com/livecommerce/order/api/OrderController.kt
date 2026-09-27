@@ -3,12 +3,15 @@ package com.livecommerce.order.api
 import com.livecommerce.common.identity.IdentityHeaders
 import com.livecommerce.order.api.dto.CreateOrderRequest
 import com.livecommerce.order.api.dto.OrderErrorResponse
+import com.livecommerce.order.api.dto.OrderPageResponse
 import com.livecommerce.order.api.dto.OrderResponse
 import com.livecommerce.order.api.dto.SubmitPaymentRequest
 import com.livecommerce.order.domain.OrderRepository
 import com.livecommerce.order.saga.BuyerCancellation
 import com.livecommerce.order.saga.OrderSagaOrchestrator
 import com.livecommerce.order.saga.PaymentSubmission
+import org.springframework.data.domain.PageRequest
+import org.springframework.data.domain.Sort
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
@@ -17,6 +20,7 @@ import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 import java.util.UUID
 
@@ -35,8 +39,32 @@ class OrderController(
         if (request.quantity !in 1..MAX_QUANTITY) {
             return error(HttpStatus.BAD_REQUEST, "INVALID_QUANTITY", "Quantity must be between 1 and $MAX_QUANTITY")
         }
-        val order = orchestrator.createOrder(userId, request.productId, request.quantity)
+        val shipping = request.shippingAddress?.normalized()
+            ?: return error(HttpStatus.BAD_REQUEST, "SHIPPING_ADDRESS_REQUIRED", "A shipping address is required")
+        val violations = shipping.violations()
+        if (violations.isNotEmpty()) {
+            return ResponseEntity.badRequest()
+                .body(OrderErrorResponse("INVALID_SHIPPING_ADDRESS", "Shipping address is invalid", violations))
+        }
+        val order = orchestrator.createOrder(userId, request.productId, request.quantity, shipping)
         return ResponseEntity.status(HttpStatus.CREATED).body(OrderResponse.from(order))
+    }
+
+    @GetMapping
+    fun myOrders(
+        @RequestHeader(IdentityHeaders.USER_ID) userId: UUID,
+        @RequestParam(defaultValue = "0") page: Int,
+        @RequestParam(defaultValue = "10") size: Int
+    ): OrderPageResponse {
+        val pageable = PageRequest.of(page.coerceAtLeast(0), size.coerceIn(1, MAX_PAGE_SIZE), Sort.by(Sort.Direction.DESC, "createdAt"))
+        val result = orderRepository.findAllByMemberId(userId, pageable)
+        return OrderPageResponse(
+            items = result.content.map { OrderResponse.from(it) },
+            page = result.number,
+            size = result.size,
+            totalElements = result.totalElements,
+            totalPages = result.totalPages
+        )
     }
 
     @GetMapping("/{orderId}")
@@ -86,5 +114,6 @@ class OrderController(
 
     companion object {
         private const val MAX_QUANTITY = 10
+        private const val MAX_PAGE_SIZE = 50
     }
 }
