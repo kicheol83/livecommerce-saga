@@ -17,6 +17,7 @@ import org.springframework.beans.factory.annotation.Value
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.math.BigDecimal
 import java.time.Duration
 import java.time.Instant
 import java.util.UUID
@@ -106,6 +107,15 @@ class InventoryService(
         )
         expired.forEach { returnToStock(it, ReservationStatus.EXPIRED) }
         return expired.size
+    }
+
+    @Transactional
+    fun adjustProduct(productId: UUID, quantityAvailable: Int, unitPrice: BigDecimal): ProductStock? {
+        val stock = productStockRepository.findByIdForUpdate(productId) ?: return null
+        stock.quantityAvailable = quantityAvailable
+        stock.unitPrice = unitPrice
+        publishStockChanged(stock)
+        return stock
     }
 
     @Transactional(readOnly = true)
