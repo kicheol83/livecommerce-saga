@@ -98,16 +98,39 @@ k6 run -e VIEWERS=500 --summary-export ..\results\live-viewers.json live-viewers
 
 `live-viewers.js` natijasini o'qish: `stock_updates_received / stock_changes_emitted` nisbati har bir stok o'zgarishi paytida onlayn bo'lgan tomoshabinlar soniga yaqin bo'lishi kerak. Nisbat sezilarli darajada kam bo'lsa, ba'zi tomoshabinlarga yangilanish yetib bormagan bo'ladi.
 
-### Natijalar
+### Natijalar va optimizatsiya
 
-Barcha servislar, beshta PostgreSQL, Kafka va Jaeger bitta noutbukda ishlaganda o'lchandi. Shuning uchun raqamlar production quvvatini emas, arxitekturaning bitta mashinadagi xatti-harakatini ko'rsatadi.
+Barcha servislar, beshta PostgreSQL, Kafka va Jaeger bitta Windows noutbukda ishlaganda o'lchandi. Shuning uchun raqamlar production quvvatini emas, arxitekturaning bitta mashinadagi xatti-harakatini ko'rsatadi.
 
-| Stsenariy | Natija |
-| --- | --- |
-| Muhit | _(CPU, RAM, OS)_ |
-| flash-sale: 100 dona, 300 urinish, 100 VU | _(orders_completed, orders_sold_out, create_order p95, time_to_completion p95, invariantlar)_ |
-| flash-sale: 100 dona, 1000 urinish, 200 VU | _(to'ldiriladi)_ |
-| live-viewers: 500 tomoshabin | _(stomp_connected, time_to_stomp_connected p95, yetkazilish nisbati)_ |
+Birinchi o'lchov to'g'rilikni isbotladi: 200 ta parallel xaridor 100 dona uchun kurashganda aynan 100 tasi sotib oldi, 100 ta to'lov yechildi, 42 448 so'rovda birorta HTTP xato bo'lmadi va beshala invariant o'tdi. Lekin tezlik zaif edi va raqamlar sababini ko'rsatdi:
+
+| Topilma | Sabab | O'zgarish |
+| --- | --- | --- |
+| `create_order` p95 ≈ 5.8 s | Stok tugagandan keyin ham har bir so'rov mahsulot qatoridagi `FOR UPDATE` qulfi uchun navbat kutgan | Qulfdan oldin qulfsiz skalyar o'qish: stok yetmasa, darhol rad etiladi. Oldindan tekshirish entity emas, faqat raqam o'qiydi — aks holda Hibernate keyingi `FOR UPDATE`da keshdagi eski entity'ni qaytarib, oversell'ga yo'l ochgan bo'lardi |
+| Stok ushlanishi p95 17.8 s (1000 urinish) | Har bir topic'da 1 partition va bitta consumer oqimi — hodisalar navbatga to'plangan | Topic'lar 6 partition bilan e'lon qilinadi, order-service ularni 6 oqimda o'qiydi. Kalit — `orderId`, shuning uchun bitta buyurtma hodisalarining tartibi saqlanadi |
+| Har bir Saga qadamida qo'shimcha kechikish | Outbox relay 500 ms'da bir marta tekshirgan va hodisalarni birma-bir, har birining tasdig'ini kutib yuborgan | 100 ms'da tekshirish, paketni parallel yuborish, keyin tasdiqlarni kutish, `linger.ms=5`. Faqat ketma-ket muvaffaqiyatli prefiks `PUBLISHED` bo'ladi, qolgani qayta yuboriladi — takror bo'lishi mumkin, yo'qolish emas |
+| 500 tomoshabinda 454 583 ta "tomoshabinlar soni" xabari | Har bir ulanish soni yangilanishini barcha tomoshabinlarga yuborgan — O(n²) | Soni sekundiga ko'pi bilan bir marta va faqat o'zgarganda yuboriladi |
+| Order-service'da ulanish kutish | Standart 10 ta DB ulanishi 12 ta consumer oqimi va HTTP so'rovlar uchun yetmagan | Hikari pool 30 |
+
+Tez rad etishning ongli kelishuvi: agar qulfsiz o'qish "0" ko'rgan paytda boshqa buyurtma stokni qaytarayotgan bo'lsa, xaridor "sold out" javobini olishi mumkin. Qaytarilgan stok keyingi xaridorlarga darhol ochiq bo'ladi va ortiqcha sotuv hech qachon yuz bermaydi — flash-sale uchun bu to'g'ri tanlov.
+
+O'lchov usulidagi o'zgarish: birinchi o'lchovda k6 xaridorni 15–20 soniyadan keyin "tashlab ketgan" deb hisoblagan va holatni har 250 ms'da so'ragan. Shu sababli ba'zi yakunlangan buyurtmalar k6'da hisobga olinmagan va polling'ning o'zi yuk bo'lgan. Keyingi o'lchovlarda kutish 60/90 soniya, polling esa 500 ms. Bu "keyin" natijalarini biroz yaxshilaydi, shuning uchun jadvalda bu ham qayd etilgan.
+
+| Ko'rsatkich (100 dona, 1000 urinish, 200 VU) | Oldin | Keyin |
+| --- | --- | --- |
+| Invariantlar | ✓ 5/5 | _(to'ldiriladi)_ |
+| Sotildi / to'landi | 100 / 100 | _(to'ldiriladi)_ |
+| HTTP xatolar | 0 / 42 448 | _(to'ldiriladi)_ |
+| `create_order` p95 | 5.72 s | _(to'ldiriladi)_ |
+| Stok ushlanguncha p95 | 17.77 s | _(to'ldiriladi)_ |
+| Yakunlanguncha p95 | 33.55 s (k6 kesgan) | _(to'ldiriladi)_ |
+
+| Ko'rsatkich (500 tomoshabin) | Oldin | Keyin |
+| --- | --- | --- |
+| STOMP ulanishi | 571 / 571 | _(to'ldiriladi)_ |
+| Ulanish p95 | 423 ms | _(to'ldiriladi)_ |
+| "Tomoshabinlar soni" xabarlari | 454 583 | _(to'ldiriladi)_ |
+| Stok yangilanishi yetkazilishi | o'lchanmadi (test stokni tiklamagan) | _(to'ldiriladi)_ |
 
 ## Nima buziladi va qanday tiklanadi
 
