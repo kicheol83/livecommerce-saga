@@ -69,6 +69,46 @@ Testlar ishlab turgan stackka (yuqoridagi "Lokal ishga tushirish" bo'limi) real 
 
 `test` baxtli yo'l, stok yetishmaganda compensation, takroriy so'rovlarga idempotentlik, live-service'ning stok ma'lumoti, gateway orqali autentifikatsiya, admin API, yetkazib berish va kuryer webhook xavfsizligini tekshiradi. `chaosTest` esa Kafka va bazalarni haqiqatan to'xtatib, qayta ishga tushiradi (bir necha daqiqa davom etadi).
 
+## Yuklama testi (k6)
+
+`load-test/k6/` papkasida uchta skript bor. Ularning barchasi gateway (`http://localhost:8080`) orqali ishlaydi va haqiqiy foydalanuvchilarni ro'yxatdan o'tkazadi. To'lov bosqichida `fake_approve_*` kalitlari ishlatiladi, shuning uchun Toss'ga yuklama berilmaydi — uchinchi tomon API'sini yuklama testiga qo'shmaslik shart.
+
+```powershell
+winget install k6 --source winget
+cd load-test\k6
+k6 run smoke.js
+k6 run --summary-export ..\results\flash-sale.json flash-sale.js
+k6 run -e STOCK=100 -e BUYERS=1000 -e VUS=200 -e USERS=200 --summary-export ..\results\flash-sale-1000.json flash-sale.js
+k6 run -e VIEWERS=500 --summary-export ..\results\live-viewers.json live-viewers.js
+```
+
+| Skript | Nimani tekshiradi |
+| --- | --- |
+| `smoke.js` | Bitta xaridor bilan butun oqim: buyurtma → stok ushlash → to'lov → yakun → yetkazib berish → "내 주문". Katta testdan oldin stack ishlayotganini tasdiqlaydi |
+| `flash-sale.js` | `BUYERS` ta xarid urinishi `STOCK` dona uchun bir vaqtda kurashadi. Tezlik (`time_to_stock_hold`, `time_to_completion`, endpoint p95) va sotuv natijasi (`orders_completed`, `orders_sold_out`) o'lchanadi |
+| `live-viewers.js` | `VIEWERS` ta tomoshabin STOMP orqali ulanadi, bu vaqtda xaridlar stokni o'zgartirib turadi. Ulanish muvaffaqiyati, ulanish vaqti va stok yangilanishlarining yetkazilishi o'lchanadi |
+
+`flash-sale.js` faqat tezlikni o'lchamaydi. Test oxirida u admin API orqali quyidagi invariantlarni tekshiradi, birortasi buzilsa test muvaffaqiyatsiz tugaydi:
+
+- sotilgan birliklar soni sotuvga qo'yilgan stokdan oshmaydi (oversell yo'q);
+- mavjud stok hech qachon manfiy bo'lmaydi;
+- stok saqlanadi: `mavjud + ushlangan + sotilgan = sotuvga qo'yilgan`;
+- har bir sotilgan birlik yakunlangan buyurtmaga tegishli;
+- yechilgan to'lovlar soni yakunlangan buyurtmalar soniga teng, ya'ni tovarsiz hech kimdan pul olinmagan.
+
+`live-viewers.js` natijasini o'qish: `stock_updates_received / stock_changes_emitted` nisbati har bir stok o'zgarishi paytida onlayn bo'lgan tomoshabinlar soniga yaqin bo'lishi kerak. Nisbat sezilarli darajada kam bo'lsa, ba'zi tomoshabinlarga yangilanish yetib bormagan bo'ladi.
+
+### Natijalar
+
+Barcha servislar, beshta PostgreSQL, Kafka va Jaeger bitta noutbukda ishlaganda o'lchandi. Shuning uchun raqamlar production quvvatini emas, arxitekturaning bitta mashinadagi xatti-harakatini ko'rsatadi.
+
+| Stsenariy | Natija |
+| --- | --- |
+| Muhit | _(CPU, RAM, OS)_ |
+| flash-sale: 100 dona, 300 urinish, 100 VU | _(orders_completed, orders_sold_out, create_order p95, time_to_completion p95, invariantlar)_ |
+| flash-sale: 100 dona, 1000 urinish, 200 VU | _(to'ldiriladi)_ |
+| live-viewers: 500 tomoshabin | _(stomp_connected, time_to_stomp_connected p95, yetkazilish nisbati)_ |
+
 ## Nima buziladi va qanday tiklanadi
 
 | Nosozlik | Tizimning xatti-harakati | Isbot |
@@ -213,4 +253,4 @@ Buyurtma holatini real vaqtda kuzatish uchun WebSocket'ga ulaning: `ws://localho
 
 ## Loyihaning holati
 
-Saga + Outbox oqimi, idempotentlik, timeout asosidagi tiklanish, distributed tracing, chaos testlari, live efir servisi, frontend, autentifikatsiya va API Gateway tayyor. Toss Payments integratsiyasi (backend va frontend) hamda stokni avval ushlab qoladigan Saga tayyor. Admin API, admin paneli, yetkazib berish kuzatuvi va "내 주문" sahifasi tayyor. Keyingi bosqich: k6 yuklama testi.
+Saga + Outbox oqimi, idempotentlik, timeout asosidagi tiklanish, distributed tracing, chaos testlari, live efir servisi, frontend, autentifikatsiya va API Gateway tayyor. Toss Payments integratsiyasi (backend va frontend) hamda stokni avval ushlab qoladigan Saga tayyor. Admin API, admin paneli, yetkazib berish kuzatuvi, "내 주문" sahifasi va k6 yuklama testlari tayyor. Qolgan ish: yuklama natijalarini o'lchab jadvalga yozish va yakuniy tozalash.
