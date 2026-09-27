@@ -195,6 +195,8 @@ services:
       SERVICES_ORDER_WS-URL: ws://order-service:8081
       SERVICES_LIVE_URL: http://live-service:8084
       SERVICES_LIVE_WS-URL: ws://live-service:8084
+      SERVICES_PAYMENT_URL: http://payment-service:8082
+      SERVICES_INVENTORY_URL: http://inventory-service:8083
       MANAGEMENT_OTLP_TRACING_ENDPOINT: http://jaeger:4318/v1/traces
     ports:
       - "8080:8080"

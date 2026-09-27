@@ -10,6 +10,10 @@ services:
   live:
     url: http://localhost:8084
     ws-url: ws://localhost:8084
+  payment:
+    url: http://localhost:8082
+  inventory:
+    url: http://localhost:8083
 
 spring:
   application:
@@ -37,6 +41,18 @@ spring:
           uri: ${services.live.url}
           predicates:
             - Path=/api/live/**
+        - id: admin-orders
+          uri: ${services.order.url}
+          predicates:
+            - Path=/api/admin/orders/**
+        - id: admin-payments
+          uri: ${services.payment.url}
+          predicates:
+            - Path=/api/admin/payments/**
+        - id: admin-inventory
+          uri: ${services.inventory.url}
+          predicates:
+            - Path=/api/admin/inventory/**
         - id: order-socket
           uri: ${services.order.ws-url}
           predicates:
