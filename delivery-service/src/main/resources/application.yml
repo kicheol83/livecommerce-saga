@@ -22,6 +22,7 @@ spring:
       auto-offset-reset: earliest
     listener:
       observation-enabled: true
+      concurrency: 3
 
 delivery:
   carrier-name: 라이브택배

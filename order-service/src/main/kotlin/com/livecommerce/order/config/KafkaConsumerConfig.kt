@@ -13,7 +13,8 @@ import org.springframework.util.backoff.FixedBackOff
 
 @Configuration
 class KafkaConsumerConfig(
-    @Value("\${spring.kafka.bootstrap-servers}") private val bootstrapServers: String
+    @Value("\${spring.kafka.bootstrap-servers}") private val bootstrapServers: String,
+    @Value("\${kafka.consumer-concurrency:6}") private val consumerConcurrency: Int
 ) {
 
     @Bean
@@ -32,6 +33,7 @@ class KafkaConsumerConfig(
     fun kafkaListenerContainerFactory(): ConcurrentKafkaListenerContainerFactory<String, String> {
         val factory = ConcurrentKafkaListenerContainerFactory<String, String>()
         factory.consumerFactory = consumerFactory()
+        factory.setConcurrency(consumerConcurrency)
         factory.containerProperties.isObservationEnabled = true
         factory.setCommonErrorHandler(DefaultErrorHandler(FixedBackOff(LISTENER_RETRY_INTERVAL_MS, LISTENER_MAX_RETRIES)))
         return factory

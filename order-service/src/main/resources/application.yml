@@ -8,6 +8,8 @@ spring:
     url: jdbc:postgresql://localhost:5455/order_db
     username: order_user
     password: order_pass
+    hikari:
+      maximum-pool-size: 30
   jpa:
     hibernate:
       ddl-auto: validate
