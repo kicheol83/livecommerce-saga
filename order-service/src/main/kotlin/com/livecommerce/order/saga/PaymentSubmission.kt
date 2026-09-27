@@ -15,3 +15,9 @@ sealed interface BuyerCancellation {
     data object NotFound : BuyerCancellation
     data object NotCancellable : BuyerCancellation
 }
+
+sealed interface AdminIntervention {
+    data class Applied(val order: Order) : AdminIntervention
+    data object NotFound : AdminIntervention
+    data object NotApplicable : AdminIntervention
+}

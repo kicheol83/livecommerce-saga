@@ -102,6 +102,27 @@ class OrderSagaOrchestrator(
         return BuyerCancellation.Cancelled(cancelled)
     }
 
+    fun cancelByAdmin(orderId: UUID): AdminIntervention {
+        if (!orderRepository.existsById(orderId)) {
+            return AdminIntervention.NotFound
+        }
+        val cancelled = transition(orderId, BUYER_CANCELLABLE) { it.markCancelled(CANCELLED_BY_ADMIN) }
+            ?: return AdminIntervention.NotApplicable
+        statusPublisher.publish(cancelled)
+        requestStockRelease(cancelled)
+        return AdminIntervention.Applied(cancelled)
+    }
+
+    fun retryNow(orderId: UUID): AdminIntervention {
+        val order = orderRepository.findById(orderId).orElse(null) ?: return AdminIntervention.NotFound
+        if (order.status !in RETRYABLE) {
+            return AdminIntervention.NotApplicable
+        }
+        retryStep(orderId, order.status)
+        val refreshed = orderRepository.findById(orderId).orElse(null) ?: return AdminIntervention.NotFound
+        return AdminIntervention.Applied(refreshed)
+    }
+
     fun onPaymentConfirmed(orderId: UUID) {
         val confirmingStock = transition(orderId, setOf(OrderStatus.PAYMENT_CONFIRMING)) { it.markConfirmingStock() }
         if (confirmingStock != null) {
@@ -242,9 +263,16 @@ class OrderSagaOrchestrator(
         const val PAYMENT_WINDOW_EXPIRED = "payment window expired"
         const val INVENTORY_TIMEOUT = "inventory step timed out"
         const val CANCELLED_BY_BUYER = "cancelled by buyer"
+        const val CANCELLED_BY_ADMIN = "cancelled by admin"
         private const val COMPENSATED = "compensated"
         private const val LATE_PAYMENT_REFUND = "payment arrived after the order was cancelled"
         private val HOLD_SAFETY_MARGIN: Duration = Duration.ofSeconds(60)
         private val BUYER_CANCELLABLE = setOf(OrderStatus.AWAITING_STOCK, OrderStatus.AWAITING_PAYMENT)
+        private val RETRYABLE = setOf(
+            OrderStatus.AWAITING_STOCK,
+            OrderStatus.PAYMENT_CONFIRMING,
+            OrderStatus.CONFIRMING_STOCK,
+            OrderStatus.COMPENSATING
+        )
     }
 }
