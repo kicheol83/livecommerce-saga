@@ -80,6 +80,7 @@ services:
     restart: unless-stopped
     environment:
       KAFKA_NODE_ID: 1
+      KAFKA_NUM_PARTITIONS: 6
       KAFKA_PROCESS_ROLES: broker,controller
       KAFKA_LISTENERS: PLAINTEXT://:9092,PLAINTEXT_HOST://:9094,CONTROLLER://:9093
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:9094
