@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.livecommerce.integration.SagaTestClient.Companion.DEMO_PRODUCT_ID
 import com.livecommerce.integration.SagaTestClient.Companion.GATEWAY_URL
+import com.livecommerce.integration.SagaTestClient.Companion.SHIPPING_ADDRESS_JSON
 import com.livecommerce.integration.SagaTestClient.Companion.USER_ID_HEADER
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
@@ -121,7 +122,7 @@ class AuthFlowTest {
     }
 
     private fun orderBody(): String {
-        return """{"productId":"$DEMO_PRODUCT_ID","quantity":1}"""
+        return """{"productId":"$DEMO_PRODUCT_ID","quantity":1,"shippingAddress":$SHIPPING_ADDRESS_JSON}"""
     }
 
     private fun refreshCookie(response: HttpResponse<String>): String {

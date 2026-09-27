@@ -11,6 +11,9 @@ import java.sql.Connection
 import java.sql.DriverManager
 import java.sql.PreparedStatement
 import java.time.Duration
+import javax.crypto.Mac
+import javax.crypto.spec.SecretKeySpec
+import java.util.HexFormat
 import java.util.UUID
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.TimeUnit
@@ -38,7 +41,7 @@ class SagaTestClient {
 
     fun createOrder(quantity: Int): String {
         val body = """
-            {"productId":"$DEMO_PRODUCT_ID","quantity":$quantity}
+            {"productId":"$DEMO_PRODUCT_ID","quantity":$quantity,"shippingAddress":$SHIPPING_ADDRESS_JSON}
         """.trimIndent()
         val response = send(
             HttpRequest.newBuilder()
@@ -156,6 +159,39 @@ class SagaTestClient {
         assertThat(submitPayment(orderId, approvalKey())).isEqualTo(202)
         assertThat(pollUntilStatus(orderId, TERMINAL_STATUSES, Duration.ofSeconds(20))).isEqualTo("COMPLETED")
         return orderId
+    }
+
+    fun fetchDelivery(orderId: String): JsonNode? {
+        val response = send(
+            HttpRequest.newBuilder()
+                .uri(URI.create("$DELIVERY_SERVICE_URL/api/deliveries/$orderId"))
+                .header(USER_ID_HEADER, TEST_USER_ID)
+                .GET()
+                .build()
+        )
+        return if (response.statusCode() == 200) objectMapper.readTree(response.body()) else null
+    }
+
+    fun deliveryStatus(orderId: String): String? {
+        return fetchDelivery(orderId)?.get("status")?.asText()
+    }
+
+    fun postCourierWebhook(body: String, timestamp: Long, signature: String): HttpResponse<String> {
+        return send(
+            HttpRequest.newBuilder()
+                .uri(URI.create("$GATEWAY_URL/api/deliveries/webhooks/courier"))
+                .header("Content-Type", "application/json")
+                .header("X-Courier-Timestamp", timestamp.toString())
+                .header("X-Courier-Signature", signature)
+                .POST(HttpRequest.BodyPublishers.ofString(body))
+                .build()
+        )
+    }
+
+    fun signCourierWebhook(timestamp: Long, body: String): String {
+        val mac = Mac.getInstance("HmacSHA256")
+        mac.init(SecretKeySpec(COURIER_WEBHOOK_SECRET.toByteArray(Charsets.UTF_8), "HmacSHA256"))
+        return "sha256=" + HexFormat.of().formatHex(mac.doFinal("$timestamp.$body".toByteArray(Charsets.UTF_8)))
     }
 
     fun orderStatus(orderId: String): String {
@@ -288,6 +324,10 @@ class SagaTestClient {
         const val INVENTORY_SERVICE_URL = "http://localhost:8083"
         const val LIVE_SERVICE_URL = "http://localhost:8084"
         const val GATEWAY_URL = "http://localhost:8080"
+        const val DELIVERY_SERVICE_URL = "http://localhost:8086"
+        const val COURIER_WEBHOOK_SECRET = "local-courier-webhook-secret"
+        const val SHIPPING_ADDRESS_JSON =
+            """{"recipientName":"김테스트","phone":"010-1234-5678","zipCode":"04799","address1":"서울특별시 성동구 성수이로 113","address2":"3층"}"""
         const val USER_ID_HEADER = "X-User-Id"
         const val ADMIN_EMAIL = "admin@livecommerce.local"
         const val ADMIN_PASSWORD = "admin1234!"
