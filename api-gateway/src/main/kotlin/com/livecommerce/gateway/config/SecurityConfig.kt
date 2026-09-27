@@ -25,7 +25,8 @@ class SecurityConfig {
                 it.pathMatchers("/api/auth/**", "/actuator/health", "/ws/**").permitAll()
                 it.pathMatchers(HttpMethod.GET, "/api/live/**").permitAll()
                 it.pathMatchers("/api/admin/**").hasRole(IdentityHeaders.ADMIN_ROLE)
-                it.pathMatchers("/api/orders/**").authenticated()
+                it.pathMatchers(HttpMethod.POST, "/api/deliveries/webhooks/**").permitAll()
+                it.pathMatchers("/api/orders/**", "/api/deliveries/**").authenticated()
                 it.anyExchange().denyAll()
             }
             .oauth2ResourceServer { resourceServer ->

@@ -59,6 +59,21 @@ services:
     networks:
       - livecommerce_network
 
+  postgres-delivery:
+    image: postgres:16
+    container_name: postgres-delivery
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: delivery_db
+      POSTGRES_USER: delivery_user
+      POSTGRES_PASSWORD: delivery_pass
+    ports:
+      - "5459:5432"
+    volumes:
+      - postgres_delivery_data:/var/lib/postgresql/data
+    networks:
+      - livecommerce_network
+
   kafka:
     image: apache/kafka:3.9.0
     container_name: kafka
@@ -197,6 +212,7 @@ services:
       SERVICES_LIVE_WS-URL: ws://live-service:8084
       SERVICES_PAYMENT_URL: http://payment-service:8082
       SERVICES_INVENTORY_URL: http://inventory-service:8083
+      SERVICES_DELIVERY_URL: http://delivery-service:8086
       MANAGEMENT_OTLP_TRACING_ENDPOINT: http://jaeger:4318/v1/traces
     ports:
       - "8080:8080"
@@ -207,11 +223,31 @@ services:
     networks:
       - livecommerce_network
 
+  delivery-service:
+    build:
+      context: .
+      dockerfile: delivery-service/Dockerfile
+    container_name: delivery-service
+    restart: unless-stopped
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-delivery:5432/delivery_db
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      COURIER_WEBHOOK_URL: http://delivery-service:8086/api/deliveries/webhooks/courier
+      MANAGEMENT_OTLP_TRACING_ENDPOINT: http://jaeger:4318/v1/traces
+    ports:
+      - "8086:8086"
+    depends_on:
+      - postgres-delivery
+      - kafka
+    networks:
+      - livecommerce_network
+
 networks:
   livecommerce_network:
     driver: bridge
 
 volumes:
+  postgres_delivery_data:
   postgres_auth_data:
   postgres_order_data:
   postgres_payment_data:

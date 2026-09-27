@@ -14,6 +14,8 @@ services:
     url: http://localhost:8082
   inventory:
     url: http://localhost:8083
+  delivery:
+    url: http://localhost:8086
 
 spring:
   application:
@@ -41,6 +43,10 @@ spring:
           uri: ${services.live.url}
           predicates:
             - Path=/api/live/**
+        - id: deliveries
+          uri: ${services.delivery.url}
+          predicates:
+            - Path=/api/deliveries/**
         - id: admin-orders
           uri: ${services.order.url}
           predicates:
