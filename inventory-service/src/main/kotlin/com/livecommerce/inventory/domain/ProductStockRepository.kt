@@ -12,4 +12,7 @@ interface ProductStockRepository : JpaRepository<ProductStock, UUID> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select p from ProductStock p where p.productId = :productId")
     fun findByIdForUpdate(@Param("productId") productId: UUID): ProductStock?
+
+    @Query("select p.quantityAvailable from ProductStock p where p.productId = :productId")
+    fun findAvailableQuantity(@Param("productId") productId: UUID): Int?
 }

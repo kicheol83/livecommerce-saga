@@ -38,14 +38,14 @@ class InventoryService(
         if (existing != null) {
             return
         }
+        val visibleQuantity = productStockRepository.findAvailableQuantity(productId)
+        if (visibleQuantity == null || visibleQuantity < quantity) {
+            publishReservationFailed(orderId)
+            return
+        }
         val stock = productStockRepository.findByIdForUpdate(productId)
         if (stock == null || !stock.reserve(quantity)) {
-            outboxWriter.write(
-                orderId,
-                EventType.INVENTORY_FAILED,
-                KafkaTopics.INVENTORY_EVENTS,
-                InventoryFailedEvent(orderId, INSUFFICIENT_STOCK)
-            )
+            publishReservationFailed(orderId)
             return
         }
         val expiresAt = Instant.now().plus(holdTtl)
@@ -129,6 +129,15 @@ class InventoryService(
         reservation.status = finalStatus
         reservation.expiresAt = null
         publishStockChanged(stock)
+    }
+
+    private fun publishReservationFailed(orderId: UUID) {
+        outboxWriter.write(
+            orderId,
+            EventType.INVENTORY_FAILED,
+            KafkaTopics.INVENTORY_EVENTS,
+            InventoryFailedEvent(orderId, INSUFFICIENT_STOCK)
+        )
     }
 
     private fun publishConfirmed(reservation: InventoryReservation) {
