@@ -52,6 +52,17 @@ docker compose up -d postgres-order postgres-payment postgres-inventory postgres
 
 Har bir servis alohida PowerShell oynasida ishga tushiriladi. Tashqi mijozlar uchun yagona kirish nuqtasi — gateway (`http://localhost:8080`).
 
+Buni bitta buyruq bilan ham qilish mumkin. Skript infratuzilmani ko'taradi, har bir servisni o'z nomi yozilgan oynada ochadi va barcha portlar tayyor bo'lguncha kutadi:
+
+```powershell
+.\gradlew assemble
+powershell -ExecutionPolicy Bypass -File scripts\start-services.ps1
+powershell -ExecutionPolicy Bypass -File scripts\stop-services.ps1
+powershell -ExecutionPolicy Bypass -File scripts\stop-services.ps1 -Infrastructure
+```
+
+`stop-services.ps1` faqat shu loyiha servislarini to'xtatadi — boshqa Java jarayonlariga (masalan, IDE'ga) tegmaydi. `-Infrastructure` bayrog'i konteynerlarni ham to'xtatadi.
+
 ## To'liq Docker orqali ishga tushirish
 
 ```powershell
