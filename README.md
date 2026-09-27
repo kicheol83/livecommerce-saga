@@ -124,6 +124,25 @@ Demo admin hisobi birinchi ishga tushirishda avtomatik yaratiladi: `admin@liveco
 
 Cheklov: imzolash kaliti har ishga tushishda yangidan yaratiladi. Bu access token'larni bekor qiladi, lekin refresh token'lar bazada saqlangani uchun foydalanuvchi sezmasdan yangi token oladi. Production'da kalit tashqi saqlovdan (KMS yoki Vault) yuklanishi kerak.
 
+## Admin API
+
+Barcha admin yo'llari gateway'da faqat `ADMIN` roli uchun ochiq. Bundan tashqari, har bir servis `X-User-Roles` sarlavhasini o'zi ham qayta tekshiradi, shuning uchun gateway chetlab o'tilsa ham admin API yopiq qoladi. Har bir servis faqat o'z ma'lumotini beradi — alohida "admin servis" yoki servislararo JOIN yo'q.
+
+| Yo'l | Servis | Vazifasi |
+| --- | --- | --- |
+| `GET /api/admin/orders?status=&page=&size=` | order | Buyurtmalar ro'yxati, holat bo'yicha filtr |
+| `GET /api/admin/orders/summary` | order | Holatlar bo'yicha soni, tushum, 24 soatlik konversiya, qotib qolgan buyurtmalar, o'rtacha yakunlanish vaqti, daqiqalik grafik |
+| `POST /api/admin/orders/{id}/retry` | order | Qotib qolgan Saga bosqichini kutmasdan qayta ishga tushirish |
+| `POST /api/admin/orders/{id}/cancel` | order | To'lanmagan buyurtmani bekor qilish (stok darhol qaytariladi) |
+| `GET /api/admin/payments/orders/{id}` | payment | Buyurtmaning to'lov yozuvi: usul, tasdiq vaqti, rad etish kodi |
+| `GET /api/admin/payments/summary` | payment | To'lovlar soni, tasdiqlangan va qaytarilgan summalar |
+| `GET /api/admin/inventory/products`, `PUT .../products/{id}` | inventory | Stok, ushlab turilgan va sotilgan miqdor; stok va narxni tahrirlash |
+| `GET /api/admin/inventory/reservations/{orderId}` | inventory | Buyurtmaning stok ushlash yozuvi va muddati |
+| `GET /api/admin/{payments,inventory}/outbox?aggregateId=` | payment, inventory | Buyurtmaga tegishli outbox hodisalari — Saga'ning hodisalar jurnali |
+| `GET /api/admin/{payments,inventory}/outbox/health` | payment, inventory | Kutayotgan hodisalar soni, eng eskisining yoshi, so'nggi xatolar |
+
+Statistika so'rovlari JPA orqali emas, to'g'ridan-to'g'ri SQL (`JdbcTemplate`, `FILTER`, `date_trunc`) bilan yozilgan: bu agregatlarni bitta so'rovda hisoblaydi va entity'larni xotiraga yuklamaydi.
+
 ## Frontend
 
 `frontend/` — Next.js 14 (App Router), TypeScript va Tailwind asosidagi mobile-first live efir ekrani. Interfeys koreys tilida.
@@ -172,4 +191,4 @@ Buyurtma holatini real vaqtda kuzatish uchun WebSocket'ga ulaning: `ws://localho
 
 ## Loyihaning holati
 
-Saga + Outbox oqimi, idempotentlik, timeout asosidagi tiklanish, distributed tracing, chaos testlari, live efir servisi, frontend, autentifikatsiya va API Gateway tayyor. Toss Payments integratsiyasi (backend va frontend) hamda stokni avval ushlab qoladigan Saga tayyor. Keyingi bosqichlar: admin paneli, yetkazib berish kuzatuvi, k6 yuklama testi.
+Saga + Outbox oqimi, idempotentlik, timeout asosidagi tiklanish, distributed tracing, chaos testlari, live efir servisi, frontend, autentifikatsiya va API Gateway tayyor. Toss Payments integratsiyasi (backend va frontend) hamda stokni avval ushlab qoladigan Saga tayyor. Admin API tayyor. Keyingi bosqichlar: admin paneli (frontend), yetkazib berish kuzatuvi, k6 yuklama testi.
