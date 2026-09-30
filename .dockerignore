@@ -1,0 +1,10 @@
+.git
+**/build
+**/.gradle
+.idea
+.vscode
+frontend
+load-test
+docs
+scripts
+.env

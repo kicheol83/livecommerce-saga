@@ -1,0 +1,20 @@
+{
+	auto_https off
+	admin off
+	servers {
+		trusted_proxies static private_ranges
+	}
+}
+
+:80 {
+	encode zstd gzip
+
+	@backend path /api/* /ws/*
+	handle @backend {
+		reverse_proxy api-gateway:8080
+	}
+
+	handle {
+		reverse_proxy frontend:3000
+	}
+}

@@ -1,0 +1,305 @@
+name: livecommerce
+
+x-java: &java
+  restart: unless-stopped
+  mem_limit: 512m
+  networks:
+    - internal
+
+x-java-env: &java-env
+  JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=65 -XX:+UseSerialGC -Xss512k -XX:ReservedCodeCacheSize=64m
+  MANAGEMENT_OTLP_TRACING_ENDPOINT: http://jaeger:4318/v1/traces
+  MANAGEMENT_TRACING_SAMPLING_PROBABILITY: '0.2'
+
+x-postgres: &postgres
+  image: postgres:16-alpine
+  restart: unless-stopped
+  mem_limit: 256m
+  networks:
+    - internal
+
+services:
+  postgres-order:
+    <<: *postgres
+    environment:
+      POSTGRES_DB: order_db
+      POSTGRES_USER: order_user
+      POSTGRES_PASSWORD: ${ORDER_DB_PASSWORD:?ORDER_DB_PASSWORD is required}
+    volumes:
+      - postgres_order_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U order_user -d order_db']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  postgres-payment:
+    <<: *postgres
+    environment:
+      POSTGRES_DB: payment_db
+      POSTGRES_USER: payment_user
+      POSTGRES_PASSWORD: ${PAYMENT_DB_PASSWORD:?PAYMENT_DB_PASSWORD is required}
+    volumes:
+      - postgres_payment_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U payment_user -d payment_db']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  postgres-inventory:
+    <<: *postgres
+    environment:
+      POSTGRES_DB: inventory_db
+      POSTGRES_USER: inventory_user
+      POSTGRES_PASSWORD: ${INVENTORY_DB_PASSWORD:?INVENTORY_DB_PASSWORD is required}
+    volumes:
+      - postgres_inventory_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U inventory_user -d inventory_db']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  postgres-auth:
+    <<: *postgres
+    environment:
+      POSTGRES_DB: auth_db
+      POSTGRES_USER: auth_user
+      POSTGRES_PASSWORD: ${AUTH_DB_PASSWORD:?AUTH_DB_PASSWORD is required}
+    volumes:
+      - postgres_auth_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U auth_user -d auth_db']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  postgres-delivery:
+    <<: *postgres
+    environment:
+      POSTGRES_DB: delivery_db
+      POSTGRES_USER: delivery_user
+      POSTGRES_PASSWORD: ${DELIVERY_DB_PASSWORD:?DELIVERY_DB_PASSWORD is required}
+    volumes:
+      - postgres_delivery_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U delivery_user -d delivery_db']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  kafka:
+    image: apache/kafka:3.9.0
+    restart: unless-stopped
+    mem_limit: 768m
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_NUM_PARTITIONS: 6
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_HEAP_OPTS: -Xms384m -Xmx384m
+      KAFKA_LOG_RETENTION_HOURS: 72
+    healthcheck:
+      test: ['CMD-SHELL', '/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 > /dev/null 2>&1']
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    networks:
+      - internal
+
+  jaeger:
+    image: cr.jaegertracing.io/jaegertracing/jaeger:2.15.0
+    restart: unless-stopped
+    mem_limit: 384m
+    networks:
+      - internal
+
+  auth-service:
+    <<: *java
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+      target: auth-service
+    environment:
+      <<: *java-env
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-auth:5432/auth_db
+      SPRING_DATASOURCE_USERNAME: auth_user
+      SPRING_DATASOURCE_PASSWORD: ${AUTH_DB_PASSWORD:?AUTH_DB_PASSWORD is required}
+      AUTH_REFRESHCOOKIESECURE: 'true'
+      AUTH_ADMIN_EMAIL: ${ADMIN_EMAIL:?ADMIN_EMAIL is required}
+      AUTH_ADMIN_PASSWORD: ${ADMIN_PASSWORD:?ADMIN_PASSWORD is required}
+    depends_on:
+      postgres-auth:
+        condition: service_healthy
+
+  inventory-service:
+    <<: *java
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+      target: inventory-service
+    environment:
+      <<: *java-env
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-inventory:5432/inventory_db
+      SPRING_DATASOURCE_USERNAME: inventory_user
+      SPRING_DATASOURCE_PASSWORD: ${INVENTORY_DB_PASSWORD:?INVENTORY_DB_PASSWORD is required}
+      SPRING_KAFKA_BOOTSTRAPSERVERS: kafka:9092
+    depends_on:
+      postgres-inventory:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+
+  payment-service:
+    <<: *java
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+      target: payment-service
+    environment:
+      <<: *java-env
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-payment:5432/payment_db
+      SPRING_DATASOURCE_USERNAME: payment_user
+      SPRING_DATASOURCE_PASSWORD: ${PAYMENT_DB_PASSWORD:?PAYMENT_DB_PASSWORD is required}
+      SPRING_KAFKA_BOOTSTRAPSERVERS: kafka:9092
+      PAYMENTS_FAKEENABLED: ${PAYMENTS_FAKE_ENABLED:-false}
+    depends_on:
+      postgres-payment:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+
+  order-service:
+    <<: *java
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+      target: order-service
+    environment:
+      <<: *java-env
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-order:5432/order_db
+      SPRING_DATASOURCE_USERNAME: order_user
+      SPRING_DATASOURCE_PASSWORD: ${ORDER_DB_PASSWORD:?ORDER_DB_PASSWORD is required}
+      SPRING_KAFKA_BOOTSTRAPSERVERS: kafka:9092
+      SERVICES_PAYMENT_BASEURL: http://payment-service:8082
+      SERVICES_INVENTORY_BASEURL: http://inventory-service:8083
+    depends_on:
+      postgres-order:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      payment-service:
+        condition: service_started
+      inventory-service:
+        condition: service_started
+
+  live-service:
+    <<: *java
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+      target: live-service
+    environment:
+      <<: *java-env
+      SPRING_KAFKA_BOOTSTRAPSERVERS: kafka:9092
+      SERVICES_INVENTORY_BASEURL: http://inventory-service:8083
+      SERVICES_AUTH_JWKSETURI: http://auth-service:8085/.well-known/jwks.json
+    depends_on:
+      kafka:
+        condition: service_healthy
+      inventory-service:
+        condition: service_started
+      auth-service:
+        condition: service_started
+
+  delivery-service:
+    <<: *java
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+      target: delivery-service
+    environment:
+      <<: *java-env
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-delivery:5432/delivery_db
+      SPRING_DATASOURCE_USERNAME: delivery_user
+      SPRING_DATASOURCE_PASSWORD: ${DELIVERY_DB_PASSWORD:?DELIVERY_DB_PASSWORD is required}
+      SPRING_KAFKA_BOOTSTRAPSERVERS: kafka:9092
+      DELIVERY_WEBHOOKSECRET: ${COURIER_WEBHOOK_SECRET:?COURIER_WEBHOOK_SECRET is required}
+      COURIER_WEBHOOKURL: http://delivery-service:8086/api/deliveries/webhooks/courier
+    depends_on:
+      postgres-delivery:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+
+  api-gateway:
+    <<: *java
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+      target: api-gateway
+    environment:
+      <<: *java-env
+      SERVICES_AUTH_URL: http://auth-service:8085
+      SERVICES_ORDER_URL: http://order-service:8081
+      SERVICES_ORDER_WSURL: ws://order-service:8081
+      SERVICES_LIVE_URL: http://live-service:8084
+      SERVICES_LIVE_WSURL: ws://live-service:8084
+      SERVICES_PAYMENT_URL: http://payment-service:8082
+      SERVICES_INVENTORY_URL: http://inventory-service:8083
+      SERVICES_DELIVERY_URL: http://delivery-service:8086
+    depends_on:
+      - auth-service
+      - order-service
+      - live-service
+      - delivery-service
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_LIVE_SOCKET_URL: wss://${PUBLIC_HOST:?PUBLIC_HOST is required}/ws/live
+        NEXT_PUBLIC_ORDER_SOCKET_URL: wss://${PUBLIC_HOST:?PUBLIC_HOST is required}/ws/orders
+    restart: unless-stopped
+    mem_limit: 384m
+    depends_on:
+      - api-gateway
+    networks:
+      - internal
+
+  edge:
+    image: caddy:2-alpine
+    container_name: livecommerce-edge
+    restart: unless-stopped
+    volumes:
+      - ./docker/edge/Caddyfile:/etc/caddy/Caddyfile:ro
+    depends_on:
+      - frontend
+      - api-gateway
+    networks:
+      - internal
+      - proxy
+
+networks:
+  internal: {}
+  proxy:
+    external: true
+    name: proxy
+
+volumes:
+  postgres_order_data:
+  postgres_payment_data:
+  postgres_inventory_data:
+  postgres_auth_data:
+  postgres_delivery_data:

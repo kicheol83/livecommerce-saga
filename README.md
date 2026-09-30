@@ -2,7 +2,9 @@
 
 라이브 방송 중 한정 수량 특가(플래시 세일)를 처리하는 라이브 커머스 플랫폼입니다. 주문·결제·재고를 독립된 Spring Boot 마이크로서비스로 나누고, **Saga 오케스트레이션**과 **Transactional Outbox**로 분산 트랜잭션의 정합성을 보장합니다. 결제는 Toss Payments로 처리합니다.
 
-[English](README.en.md)
+**한국어** | [English](README.en.md)
+
+**Live Demo:** https://live.javohir.dev
 
 ![LiveCommerce Saga 화면](docs/images/hero.png)
 
@@ -318,6 +320,21 @@ $payable = Invoke-RestMethod -Uri "http://localhost:8080/api/orders/$($order.ord
 $payment = @{ paymentKey = "fake_approve_demo"; amount = $payable.amount } | ConvertTo-Json
 Invoke-RestMethod -Method Post -Uri "http://localhost:8080/api/orders/$($order.orderId)/payment" -Headers $headers -ContentType "application/json" -Body $payment
 ```
+
+## 운영 배포
+
+라이브 데모는 VPS 한 대에서 Docker Compose로 실행합니다.
+
+```bash
+cp .env.prod.example .env
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+- `Dockerfile.prod`는 Gradle 빌드를 한 번만 수행하고, 서비스마다 별도의 런타임 이미지를 만듭니다. 모든 JVM은 root가 아닌 사용자로 실행되며 컨테이너 메모리 한도를 기준으로 힙을 잡습니다.
+- 외부에서 접근할 수 있는 컨테이너는 `edge`(Caddy) 하나뿐입니다. `/api/*`와 `/ws/*`는 API Gateway로, 나머지는 Next.js로 전달합니다. PostgreSQL, Kafka, Jaeger와 각 서비스의 포트는 외부에 노출하지 않습니다.
+- 운영 환경에서는 관리자 계정(`ADMIN_EMAIL`, `ADMIN_PASSWORD`), DB 비밀번호, 택배 웹훅 서명 키를 반드시 `.env`로 지정해야 하며, 없으면 컨테이너가 시작되지 않습니다. 리프레시 토큰 쿠키는 `Secure`로 설정됩니다.
+- 부하 테스트용 가짜 결제(`fake_` 키)는 운영에서 기본적으로 꺼져 있습니다(`PAYMENTS_FAKE_ENABLED=false`).
+- 트레이스 샘플링 비율은 메모리 사용량을 고려해 20%로 낮췄습니다.
 
 ## 알려진 한계
 

@@ -1,0 +1,31 @@
+FROM eclipse-temurin:21-jdk AS build
+WORKDIR /workspace
+COPY . .
+RUN chmod +x gradlew && ./gradlew --no-daemon bootJar -x test
+
+FROM eclipse-temurin:21-jre AS runtime
+RUN useradd --system --uid 1001 --no-create-home app
+WORKDIR /app
+USER app
+ENTRYPOINT ["java", "-jar", "app.jar"]
+
+FROM runtime AS api-gateway
+COPY --from=build /workspace/api-gateway/build/libs/api-gateway-0.1.0.jar app.jar
+
+FROM runtime AS auth-service
+COPY --from=build /workspace/auth-service/build/libs/auth-service-0.1.0.jar app.jar
+
+FROM runtime AS order-service
+COPY --from=build /workspace/order-service/build/libs/order-service-0.1.0.jar app.jar
+
+FROM runtime AS payment-service
+COPY --from=build /workspace/payment-service/build/libs/payment-service-0.1.0.jar app.jar
+
+FROM runtime AS inventory-service
+COPY --from=build /workspace/inventory-service/build/libs/inventory-service-0.1.0.jar app.jar
+
+FROM runtime AS live-service
+COPY --from=build /workspace/live-service/build/libs/live-service-0.1.0.jar app.jar
+
+FROM runtime AS delivery-service
+COPY --from=build /workspace/delivery-service/build/libs/delivery-service-0.1.0.jar app.jar

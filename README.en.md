@@ -2,7 +2,9 @@
 
 A live commerce platform that runs limited-quantity flash sales during a live broadcast. Orders, payments and inventory are independent Spring Boot microservices kept consistent with **Saga orchestration** and the **transactional outbox** pattern. Payments go through Toss Payments.
 
-[한국어](README.md)
+[한국어](README.md) | **English**
+
+**Live Demo:** https://live.javohir.dev
 
 ![LiveCommerce Saga screens](docs/images/hero.png)
 
@@ -318,6 +320,21 @@ $payable = Invoke-RestMethod -Uri "http://localhost:8080/api/orders/$($order.ord
 $payment = @{ paymentKey = "fake_approve_demo"; amount = $payable.amount } | ConvertTo-Json
 Invoke-RestMethod -Method Post -Uri "http://localhost:8080/api/orders/$($order.orderId)/payment" -Headers $headers -ContentType "application/json" -Body $payment
 ```
+
+## Production deployment
+
+The live demo runs on a single VPS with Docker Compose.
+
+```bash
+cp .env.prod.example .env
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+- `Dockerfile.prod` runs the Gradle build once and produces a separate runtime image per service. Every JVM runs as a non-root user and sizes its heap from the container memory limit.
+- The only container reachable from outside is `edge` (Caddy): `/api/*` and `/ws/*` go to the API Gateway, everything else to Next.js. PostgreSQL, Kafka, Jaeger and the service ports are never published.
+- In production the admin account (`ADMIN_EMAIL`, `ADMIN_PASSWORD`), the database passwords and the courier webhook signing secret must be set in `.env`; the containers refuse to start without them. The refresh-token cookie is marked `Secure`.
+- The fake payment path for load tests (`fake_` keys) is disabled in production by default (`PAYMENTS_FAKE_ENABLED=false`).
+- Trace sampling is lowered to 20% to keep memory usage in check.
 
 ## Known limitations
 
