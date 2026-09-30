@@ -4,7 +4,7 @@ A live commerce platform that runs limited-quantity flash sales during a live br
 
 [한국어](README.md) | **English**
 
-**Live Demo:** https://live.javohir.dev
+**Live Demo:** https://live.javohir.dev · UI languages: Korean (default) / English / Uzbek
 
 ![LiveCommerce Saga screens](docs/images/hero.png)
 

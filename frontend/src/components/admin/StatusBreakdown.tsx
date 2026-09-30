@@ -1,6 +1,7 @@
 import { ORDER_STATUS_LABEL, ORDER_STATUS_ORDER } from "@/lib/adminFormat";
 import { formatCount } from "@/lib/format";
 import type { OrderStatus } from "@/lib/types";
+import { t } from "@/i18n/core";
 
 const BAR_COLOR: Record<OrderStatus, string> = {
   AWAITING_STOCK: "#E0A526",
@@ -17,7 +18,7 @@ export function StatusBreakdown({ counts }: { counts: Partial<Record<OrderStatus
   const total = entries.reduce((sum, entry) => sum + entry.count, 0);
 
   if (total === 0) {
-    return <p className="text-[14px] text-ash">아직 주문이 없어요.</p>;
+    return <p className="text-[14px] text-ash">{t("admin.breakdown.empty")}</p>;
   }
 
   return (

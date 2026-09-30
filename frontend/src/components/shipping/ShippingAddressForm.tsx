@@ -7,6 +7,7 @@ import type { AuthUser } from "@/lib/authStore";
 import { searchPostcode } from "@/lib/postcode";
 import { emptyAddress, FIELD_MESSAGES, normalizeAddress, validateAddress, type AddressErrors } from "@/lib/shipping";
 import type { ShippingAddress } from "@/lib/types";
+import { t } from "@/i18n/core";
 
 type ShippingAddressFormProps = {
   initial: ShippingAddress | null;
@@ -47,7 +48,7 @@ export function ShippingAddressForm({ initial, submitLabel, onSaved, onCancel }:
         setServerErrors((current) => ({ ...current, zipCode: undefined, address1: undefined }));
       }
     } catch {
-      setSearchError("주소 검색을 불러오지 못했어요. 우편번호와 주소를 직접 입력해 주세요.");
+      setSearchError(t("address.searchFailed"));
     }
   };
 
@@ -73,7 +74,7 @@ export function ShippingAddressForm({ initial, submitLabel, onSaved, onCancel }:
     });
     setServerErrors(mapped);
     if (Object.keys(mapped).length === 0) {
-      setFormError("배송지를 저장하지 못했어요. 잠시 후 다시 시도해 주세요.");
+      setFormError(t("address.saveFailed"));
     }
   };
 
@@ -81,7 +82,7 @@ export function ShippingAddressForm({ initial, submitLabel, onSaved, onCancel }:
     <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
       <TextField
         id="recipientName"
-        label="받는 분"
+        label={t("address.recipient")}
         type="text"
         value={fields.recipientName}
         autoComplete="shipping name"
@@ -90,7 +91,7 @@ export function ShippingAddressForm({ initial, submitLabel, onSaved, onCancel }:
       />
       <TextField
         id="phone"
-        label="연락처"
+        label={t("address.phone")}
         type="tel"
         inputMode="tel"
         placeholder="010-1234-5678"
@@ -104,7 +105,7 @@ export function ShippingAddressForm({ initial, submitLabel, onSaved, onCancel }:
           <div className="flex-1">
             <TextField
               id="zipCode"
-              label="우편번호"
+              label={t("address.zipCode")}
               type="text"
               inputMode="numeric"
               value={fields.zipCode}
@@ -122,14 +123,14 @@ export function ShippingAddressForm({ initial, submitLabel, onSaved, onCancel }:
               errorFor("zipCode") !== undefined ? "mb-[26px]" : ""
             }`}
           >
-            우편번호 찾기
+            {t("address.findZip")}
           </button>
         </div>
         {searchError !== null && <p className="mt-1.5 text-[13px] text-cranberry">{searchError}</p>}
       </div>
       <TextField
         id="address1"
-        label="주소"
+        label={t("address.address1")}
         type="text"
         value={fields.address1}
         autoComplete="shipping address-line1"
@@ -138,11 +139,11 @@ export function ShippingAddressForm({ initial, submitLabel, onSaved, onCancel }:
       />
       <TextField
         id="address2"
-        label="상세 주소"
+        label={t("address.address2")}
         type="text"
         value={fields.address2}
         autoComplete="shipping address-line2"
-        hint="동, 호수 등 나머지 주소를 입력해 주세요."
+        hint={t("address.address2Hint")}
         error={errorFor("address2")}
         onChange={update("address2")}
       />
@@ -158,7 +159,7 @@ export function ShippingAddressForm({ initial, submitLabel, onSaved, onCancel }:
             onClick={onCancel}
             className="h-[52px] flex-1 rounded-[14px] border border-frost-300 bg-white text-[15px] font-semibold text-pine"
           >
-            취소
+            {t("common.cancel")}
           </button>
         )}
         <button
@@ -166,7 +167,7 @@ export function ShippingAddressForm({ initial, submitLabel, onSaved, onCancel }:
           disabled={saving}
           className="h-[52px] flex-[2] rounded-[14px] bg-cranberry text-[16px] font-bold text-white hover:bg-cranberry-700 disabled:bg-ash/50"
         >
-          {saving ? "저장하는 중" : submitLabel}
+          {saving ? t("common.saving") : submitLabel}
         </button>
       </div>
     </form>

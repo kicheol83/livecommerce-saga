@@ -2,6 +2,7 @@ import { discountRate, formatWon } from "@/lib/format";
 import { Countdown } from "./Countdown";
 import { KnitStockMeter } from "./KnitStockMeter";
 import { QuantityStepper } from "./QuantityStepper";
+import { t } from "@/i18n/core";
 
 type ProductPanelProps = {
   productName: string;
@@ -40,16 +41,16 @@ export function ProductPanel({
   const soldOut = stock === 0;
   const lowStock = stock !== null && stock > 0 && capacity > 0 && stock / capacity <= LOW_STOCK_RATIO;
   const buyLabel = soldOut
-    ? "품절"
+    ? t("live.product.soldOut")
     : busy
-      ? "주문 처리 중"
+      ? t("live.product.processing")
       : requiresLogin
-        ? "로그인하고 구매하기"
-        : `${formatWon(price * quantity)} 구매하기`;
+        ? t("live.product.loginToBuy")
+        : t("live.product.buy", { amount: formatWon(price * quantity) });
 
   return (
     <section
-      aria-label="상품 정보"
+      aria-label={t("live.product.info")}
       className="relative z-10 shrink-0 rounded-t-[22px] bg-frost px-5 pb-[calc(16px+env(safe-area-inset-bottom))] pt-4 text-pine"
     >
       <div className="flex items-start justify-between gap-3">
@@ -66,14 +67,14 @@ export function ProductPanel({
       <div className="mt-3">
         <div className="flex items-baseline justify-between text-[14px]">
           {stock === null ? (
-            <span className="text-ash">남은 수량을 확인하는 중이에요</span>
+            <span className="text-ash">{t("live.product.checkingStock")}</span>
           ) : (
             <span aria-live="polite">
               {soldOut ? (
-                "모두 판매됐어요"
+                t("live.product.allSold")
               ) : (
                 <>
-                  남은 수량{" "}
+                  {t("live.product.remainingPrefix")}{" "}
                   <strong
                     key={stockPulse}
                     className={`inline-block font-extrabold tabular-nums ${
@@ -81,13 +82,13 @@ export function ProductPanel({
                     }`}
                   >
                     {stock}
-                  </strong>
-                  개
+                  </strong>{" "}
+                  {t("live.product.remainingSuffix")}
                 </>
               )}
             </span>
           )}
-          {lowStock && <span className="text-[13px] font-semibold text-[#8A6212]">마감 임박</span>}
+          {lowStock && <span className="text-[13px] font-semibold text-[#8A6212]">{t("live.product.almostGone")}</span>}
         </div>
         {stock !== null && <KnitStockMeter stock={stock} capacity={capacity} />}
       </div>

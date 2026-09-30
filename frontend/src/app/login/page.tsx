@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 
 export default function LoginPage() {
   return (
-    <AuthShell title="로그인" description="라이브 특가에 참여하려면 로그인해 주세요.">
+    <AuthShell titleKey="auth.login.title" descriptionKey="auth.login.description">
       <Suspense fallback={null}>
         <LoginForm />
       </Suspense>

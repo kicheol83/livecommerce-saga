@@ -1,8 +1,9 @@
 import type { AdminOrder, OutboxEvent } from "@/lib/adminTypes";
 import { EVENT_LABEL, ORDER_STATUS_LABEL } from "@/lib/adminFormat";
 import { formatDuration } from "@/lib/format";
+import { t } from "@/i18n/core";
 
-type Lane = "주문" | "결제" | "재고";
+type Lane = "order" | "payment" | "inventory";
 
 type TimelineEntry = {
   key: string;
@@ -13,10 +14,10 @@ type TimelineEntry = {
   detail: string | null;
 };
 
-const LANES: Lane[] = ["주문", "결제", "재고"];
+const LANES: Lane[] = ["order", "payment", "inventory"];
 const WIDTH = 520;
 const LANE_HEIGHT = 34;
-const LABEL_WIDTH = 44;
+const LABEL_WIDTH = 64;
 const PADDING = 14;
 
 const DOT_FILL: Record<TimelineEntry["delivery"], string> = {
@@ -45,19 +46,19 @@ function buildEntries(order: AdminOrder, paymentEvents: OutboxEvent[], inventory
   const entries: TimelineEntry[] = [
     {
       key: "created",
-      lane: "주문",
+      lane: "order",
       time: new Date(order.createdAt).getTime(),
-      label: "주문 생성",
+      label: t("admin.timeline.created"),
       delivery: "system",
       detail: null
     },
-    ...inventoryEvents.map(toEntry("재고")),
-    ...paymentEvents.map(toEntry("결제")),
+    ...inventoryEvents.map(toEntry("inventory")),
+    ...paymentEvents.map(toEntry("payment")),
     {
       key: "current",
-      lane: "주문",
+      lane: "order",
       time: new Date(order.updatedAt).getTime(),
-      label: `현재 상태: ${ORDER_STATUS_LABEL[order.status]}`,
+      label: t("admin.timeline.current", { status: ORDER_STATUS_LABEL[order.status] }),
       delivery: "system",
       detail: null
     }
@@ -88,14 +89,14 @@ export function SagaTimeline({
         viewBox={`0 0 ${WIDTH} ${height}`}
         className="h-auto w-full"
         role="img"
-        aria-label={`Saga 진행 ${formatDuration(span / 1000)} 동안 이벤트 ${entries.length}개`}
+        aria-label={t("admin.timeline.aria", { duration: formatDuration(span / 1000), count: entries.length })}
       >
         {LANES.map((lane, index) => {
           const y = index * LANE_HEIGHT + LANE_HEIGHT / 2;
           return (
             <g key={lane}>
               <text x={0} y={y + 4} fontSize={12} fontWeight={600} fill="#5B6B70">
-                {lane}
+                {t(`admin.lane.${lane}`)}
               </text>
               <line x1={LABEL_WIDTH} x2={WIDTH} y1={y} y2={y} stroke="#D6E1E1" strokeWidth={2} strokeLinecap="round" />
             </g>
@@ -115,7 +116,7 @@ export function SagaTimeline({
           );
         })}
         <text x={LABEL_WIDTH + PADDING} y={height - 2} fontSize={11} fill="#5B6B70">
-          0초
+          {t("admin.timeline.zero")}
         </text>
         <text x={WIDTH - PADDING} y={height - 2} textAnchor="end" fontSize={11} fill="#5B6B70">
           +{formatDuration(span / 1000)}
@@ -136,13 +137,13 @@ export function SagaTimeline({
               <div className="flex flex-wrap items-baseline justify-between gap-x-3">
                 <span className="font-semibold">
                   {entry.label}
-                  <span className="ml-2 font-normal text-ash">{entry.lane}</span>
+                  <span className="ml-2 font-normal text-ash">{t(`admin.lane.${entry.lane}`)}</span>
                 </span>
                 <span className="text-ash tabular-nums">+{formatDuration((entry.time - start) / 1000)}</span>
               </div>
-              {entry.delivery === "pending" && <p className="text-[#7A5510]">Kafka 전달 대기 중</p>}
+              {entry.delivery === "pending" && <p className="text-[#7A5510]">{t("admin.timeline.pending")}</p>}
               {entry.delivery === "failing" && (
-                <p className="break-all text-cranberry">전달 재시도 중: {entry.detail ?? "원인 미상"}</p>
+                <p className="break-all text-cranberry">{t("admin.timeline.retrying", { detail: entry.detail ?? t("admin.timeline.unknown") })}</p>
               )}
             </div>
           </li>

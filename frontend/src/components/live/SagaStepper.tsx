@@ -1,16 +1,17 @@
 import type { ProgressStep, StepState } from "@/lib/orderProgress";
 import { CheckIcon, CrossIcon } from "./Icons";
+import { t, translatedRecord } from "@/i18n/core";
 
 type SagaStepperProps = {
   steps: ProgressStep[];
 };
 
-const STATE_TEXT: Record<StepState, string> = {
-  done: "완료",
-  active: "진행 중",
-  pending: "대기",
-  failed: "실패"
-};
+const STATE_TEXT: Record<StepState, string> = translatedRecord({
+  done: "live.step.done",
+  active: "live.step.active",
+  pending: "live.step.pending",
+  failed: "live.step.failed"
+});
 
 const LABEL_CLASS: Record<StepState, string> = {
   done: "font-semibold text-pine",
@@ -50,7 +51,7 @@ function Marker({ state, index }: { state: StepState; index: number }) {
 
 export function SagaStepper({ steps }: SagaStepperProps) {
   return (
-    <ol className="mt-5" aria-label="주문 진행 단계">
+    <ol className="mt-5" aria-label={t("live.step.aria")}>
       {steps.map((step, index) => {
         const last = index === steps.length - 1;
         return (

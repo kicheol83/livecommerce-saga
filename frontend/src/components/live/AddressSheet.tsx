@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { ShippingAddressForm } from "@/components/shipping/ShippingAddressForm";
 import type { AuthUser } from "@/lib/authStore";
+import { t } from "@/i18n/core";
 
 type AddressSheetProps = {
   onSaved: (user: AuthUser) => void;
@@ -33,13 +34,13 @@ export function AddressSheet({ onSaved, onClose }: AddressSheetProps) {
         className="relative max-h-[92%] animate-sheet_in overflow-y-auto rounded-t-[22px] bg-frost px-5 pb-[calc(20px+env(safe-area-inset-bottom))] pt-5 text-pine motion-reduce:animate-none"
       >
         <h2 id="address-sheet-title" ref={headingRef} tabIndex={-1} className="text-[19px] font-bold outline-none">
-          배송지를 입력해 주세요
+          {t("address.sheetTitle")}
         </h2>
         <p className="mt-1 text-[14px] leading-relaxed text-ash">
-          처음 주문하시네요. 입력한 주소는 기본 배송지로 저장돼서 다음부터는 바로 주문할 수 있어요.
+          {t("address.sheetBody")}
         </p>
         <div className="mt-5">
-          <ShippingAddressForm initial={null} submitLabel="저장하고 주문하기" onSaved={onSaved} onCancel={onClose} />
+          <ShippingAddressForm initial={null} submitLabel={t("address.saveAndOrder")} onSaved={onSaved} onCancel={onClose} />
         </div>
       </section>
     </div>

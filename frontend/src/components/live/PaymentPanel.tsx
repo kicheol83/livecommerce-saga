@@ -9,6 +9,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { TOSS_CLIENT_KEY } from "@/lib/config";
 import { formatWon } from "@/lib/format";
+import { t } from "@/i18n/core";
 
 type PaymentPanelProps = {
   orderId: string;
@@ -91,7 +92,7 @@ export function PaymentPanel({ orderId, orderName, amount, customerKey, customer
       });
     } catch (error) {
       setRequesting(false);
-      setRequestError(error instanceof Error && error.message !== "" ? error.message : "결제를 시작하지 못했어요. 다시 시도해 주세요.");
+      setRequestError(error instanceof Error && error.message !== "" ? error.message : t("live.payment.startFailed"));
     }
   };
 
@@ -101,7 +102,7 @@ export function PaymentPanel({ orderId, orderName, amount, customerKey, customer
         <div id="toss-payment-methods" />
         <div id="toss-agreement" />
         {status === "loading" && (
-          <div className="space-y-2 p-4" aria-busy="true" aria-label="결제 수단을 불러오는 중">
+          <div className="space-y-2 p-4" aria-busy="true" aria-label={t("live.payment.loadingMethods")}>
             <div className="h-5 w-32 animate-pulse rounded-md bg-frost-300 motion-reduce:animate-none" />
             <div className="h-12 w-full animate-pulse rounded-[10px] bg-frost-300 motion-reduce:animate-none" />
             <div className="h-12 w-full animate-pulse rounded-[10px] bg-frost-300 motion-reduce:animate-none" />
@@ -109,14 +110,14 @@ export function PaymentPanel({ orderId, orderName, amount, customerKey, customer
         )}
         {status === "error" && (
           <div className="p-4 text-[14px] leading-relaxed text-pine">
-            <p className="font-semibold">결제 화면을 불러오지 못했어요.</p>
-            <p className="mt-1 text-ash">네트워크 상태를 확인한 뒤 다시 시도해 주세요.</p>
+            <p className="font-semibold">{t("live.payment.loadFailed")}</p>
+            <p className="mt-1 text-ash">{t("live.payment.checkNetwork")}</p>
             <button
               type="button"
               onClick={() => setAttempt((current) => current + 1)}
               className="mt-3 h-10 rounded-full bg-pine px-4 text-[14px] font-semibold text-frost"
             >
-              다시 불러오기
+              {t("live.payment.reload")}
             </button>
           </div>
         )}
@@ -134,7 +135,7 @@ export function PaymentPanel({ orderId, orderName, amount, customerKey, customer
         disabled={status !== "ready" || requesting}
         className="mt-4 h-[52px] w-full rounded-[14px] bg-cranberry text-[16px] font-bold text-white transition-colors hover:bg-cranberry-700 disabled:bg-ash/50"
       >
-        {requesting ? "결제창을 여는 중" : `${formatWon(amount)} 결제하기`}
+        {requesting ? t("live.payment.opening") : t("live.payment.pay", { amount: formatWon(amount) })}
       </button>
     </div>
   );

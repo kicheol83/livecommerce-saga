@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import type { AuthState } from "@/lib/authStore";
+import { t } from "@/i18n/core";
 
 type AccountMenuProps = {
   auth: AuthState;
@@ -45,7 +46,7 @@ export function AccountMenu({ auth, onLogout }: AccountMenuProps) {
         href="/login?next=/"
         className="shrink-0 rounded-[6px] bg-white/20 px-2 py-0.5 text-[12px] font-semibold text-white backdrop-blur-sm hover:bg-white/30"
       >
-        로그인
+        {t("common.login")}
       </Link>
     );
   }
@@ -59,7 +60,7 @@ export function AccountMenu({ auth, onLogout }: AccountMenuProps) {
         onClick={() => setOpen((current) => !current)}
         aria-haspopup="menu"
         aria-expanded={open}
-        aria-label={`${user.nickname} 계정 메뉴`}
+        aria-label={t("live.account.menu", { nickname: user.nickname })}
         className="grid h-7 w-7 place-items-center rounded-full bg-frost text-[12px] font-bold text-pine"
       >
         {user.nickname.slice(0, 1)}
@@ -78,7 +79,7 @@ export function AccountMenu({ auth, onLogout }: AccountMenuProps) {
             role="menuitem"
             className="flex h-10 w-full items-center rounded-[10px] px-3 text-left text-[14px] font-medium hover:bg-frost-300"
           >
-            내 주문
+            {t("common.myOrders")}
           </Link>
           {user.role === "ADMIN" && (
             <Link
@@ -86,7 +87,7 @@ export function AccountMenu({ auth, onLogout }: AccountMenuProps) {
               role="menuitem"
               className="flex h-10 w-full items-center rounded-[10px] px-3 text-left text-[14px] font-medium hover:bg-frost-300"
             >
-              운영 콘솔
+              {t("common.adminConsole")}
             </Link>
           )}
           <button
@@ -98,7 +99,7 @@ export function AccountMenu({ auth, onLogout }: AccountMenuProps) {
             }}
             className="h-10 w-full rounded-[10px] px-3 text-left text-[14px] font-medium hover:bg-frost-300"
           >
-            로그아웃
+            {t("common.logout")}
           </button>
         </div>
       )}

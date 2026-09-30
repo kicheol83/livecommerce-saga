@@ -1,4 +1,5 @@
 import type { ConnectionState } from "@/lib/types";
+import { t } from "@/i18n/core";
 
 export function ConnectionNotice({ state }: { state: ConnectionState }) {
   if (state !== "reconnecting") {
@@ -6,7 +7,7 @@ export function ConnectionNotice({ state }: { state: ConnectionState }) {
   }
   return (
     <p role="status" className="absolute inset-x-0 top-0 z-20 bg-mustard px-4 py-2 text-center text-[13px] font-semibold text-pine">
-      실시간 연결이 끊겼어요. 다시 연결하는 중이에요.
+      {t("live.connectionLost")}
     </p>
   );
 }
@@ -25,7 +26,7 @@ export function Toast({ message }: { message: string | null }) {
 
 export function SessionSkeleton() {
   return (
-    <div className="flex h-full flex-col" aria-busy="true" aria-label="방송 정보를 불러오는 중">
+    <div className="flex h-full flex-col" aria-busy="true" aria-label={t("live.session.loading")}>
       <div className="flex-1 animate-pulse bg-pine-600 motion-reduce:animate-none" />
       <div className="space-y-3 rounded-t-[22px] bg-frost px-5 pb-8 pt-5">
         <div className="h-5 w-40 rounded-md bg-frost-300" />
@@ -40,14 +41,14 @@ export function SessionSkeleton() {
 export function SessionError({ onRetry }: { onRetry: () => void }) {
   return (
     <div className="flex h-full flex-col items-center justify-center gap-4 px-8 text-center text-frost">
-      <p className="text-[17px] font-semibold">방송 정보를 불러오지 못했어요</p>
-      <p className="text-[14px] leading-relaxed text-frost/70">서버에 연결할 수 없어요. 잠시 후 다시 시도해 주세요.</p>
+      <p className="text-[17px] font-semibold">{t("live.session.failed")}</p>
+      <p className="text-[14px] leading-relaxed text-frost/70">{t("common.networkError")}</p>
       <button
         type="button"
         onClick={onRetry}
         className="h-11 rounded-full bg-frost px-6 text-[15px] font-semibold text-pine"
       >
-        다시 시도
+        {t("common.retry")}
       </button>
     </div>
   );

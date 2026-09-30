@@ -1,3 +1,5 @@
+import { t } from "@/i18n/core";
+
 type QuantityStepperProps = {
   value: number;
   max: number;
@@ -16,11 +18,11 @@ export function QuantityStepper({ value, max, disabled, onChange }: QuantityStep
         className={buttonClass}
         onClick={() => onChange(value - 1)}
         disabled={disabled || value <= 1}
-        aria-label="수량 줄이기"
+        aria-label={t("live.quantity.decrease")}
       >
         −
       </button>
-      <span className="w-6 text-center text-[16px] font-bold tabular-nums" aria-live="polite" aria-label={`수량 ${value}개`}>
+      <span className="w-6 text-center text-[16px] font-bold tabular-nums" aria-live="polite" aria-label={t("live.quantity.value", { count: value })}>
         {value}
       </span>
       <button
@@ -28,7 +30,7 @@ export function QuantityStepper({ value, max, disabled, onChange }: QuantityStep
         className={buttonClass}
         onClick={() => onChange(value + 1)}
         disabled={disabled || value >= max}
-        aria-label="수량 늘리기"
+        aria-label={t("live.quantity.increase")}
       >
         +
       </button>

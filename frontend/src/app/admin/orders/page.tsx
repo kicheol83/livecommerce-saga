@@ -8,11 +8,14 @@ import { adminApi } from "@/lib/adminApi";
 import { ORDER_STATUS_LABEL, ORDER_STATUS_ORDER, reasonLabel, shortId } from "@/lib/adminFormat";
 import { formatCount, formatRelative, formatWon } from "@/lib/format";
 import type { OrderStatus } from "@/lib/types";
+import { t } from "@/i18n/core";
+import { useI18n } from "@/i18n/I18nProvider";
 
 const PAGE_SIZE = 20;
 const REFRESH_MS = 5000;
 
 export default function AdminOrdersPage() {
+  useI18n();
   const [status, setStatus] = useState<OrderStatus | null>(null);
   const [page, setPage] = useState(0);
   const [selected, setSelected] = useState<string | null>(null);
@@ -26,7 +29,7 @@ export default function AdminOrdersPage() {
   };
 
   const filters: Array<{ value: OrderStatus | null; label: string }> = [
-    { value: null, label: "전체" },
+    { value: null, label: t("admin.orders.all") },
     ...ORDER_STATUS_ORDER.map((value) => ({ value, label: ORDER_STATUS_LABEL[value] }))
   ];
   const from = data === null || data.totalElements === 0 ? 0 : data.page * data.size + 1;
@@ -35,14 +38,14 @@ export default function AdminOrdersPage() {
   return (
     <div className="space-y-5">
       <PageHeader
-        title="주문"
-        description="주문을 선택하면 세 서비스에 걸친 Saga 진행 상황을 한 화면에서 볼 수 있어요."
+        title={t("admin.orders.title")}
+        description={t("admin.orders.description")}
         updatedAt={updatedAt}
         failed={failed}
         onRefresh={refresh}
       />
 
-      <div className="flex gap-2 overflow-x-auto pb-1" role="group" aria-label="주문 상태 필터">
+      <div className="flex gap-2 overflow-x-auto pb-1" role="group" aria-label={t("admin.orders.filter")}>
         {filters.map((filter) => {
           const active = filter.value === status;
           return (
@@ -66,13 +69,13 @@ export default function AdminOrdersPage() {
           <table className="w-full min-w-[760px] text-left text-[14px]">
             <thead className="border-b border-frost-300 text-[12px] font-semibold text-ash">
               <tr>
-                <th scope="col" className="px-5 py-3">주문번호</th>
-                <th scope="col" className="px-3 py-3">상태</th>
-                <th scope="col" className="px-3 py-3 text-right">수량</th>
-                <th scope="col" className="px-3 py-3 text-right">금액</th>
-                <th scope="col" className="px-3 py-3">사유</th>
-                <th scope="col" className="px-3 py-3 text-right">재시도</th>
-                <th scope="col" className="px-5 py-3 text-right">최근 변경</th>
+                <th scope="col" className="px-5 py-3">{t("admin.orders.col.id")}</th>
+                <th scope="col" className="px-3 py-3">{t("admin.orders.col.status")}</th>
+                <th scope="col" className="px-3 py-3 text-right">{t("admin.orders.col.quantity")}</th>
+                <th scope="col" className="px-3 py-3 text-right">{t("admin.orders.col.amount")}</th>
+                <th scope="col" className="px-3 py-3">{t("admin.orders.col.reason")}</th>
+                <th scope="col" className="px-3 py-3 text-right">{t("admin.orders.col.retries")}</th>
+                <th scope="col" className="px-5 py-3 text-right">{t("admin.orders.col.updated")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-frost-300">
@@ -109,13 +112,13 @@ export default function AdminOrdersPage() {
         </div>
         {data !== null && data.items.length === 0 && (
           <div className="p-5">
-            <EmptyState>조건에 맞는 주문이 없어요.</EmptyState>
+            <EmptyState>{t("admin.orders.empty")}</EmptyState>
           </div>
         )}
         {data === null && !failed && <div className="m-5 h-48 animate-pulse rounded-[12px] bg-frost motion-reduce:animate-none" />}
         <footer className="flex items-center justify-between border-t border-frost-300 px-5 py-3 text-[13px] text-ash">
           <span className="tabular-nums">
-            {data === null ? "" : `${formatCount(data.totalElements)}건 중 ${from}–${to}`}
+            {data === null ? "" : t("admin.orders.range", { total: formatCount(data.totalElements), from, to })}
           </span>
           <div className="flex gap-2">
             <button
@@ -124,7 +127,7 @@ export default function AdminOrdersPage() {
               onClick={() => setPage((current) => Math.max(0, current - 1))}
               className="h-9 rounded-full border border-frost-300 px-4 font-semibold text-pine disabled:opacity-40"
             >
-              이전
+              {t("admin.orders.prev")}
             </button>
             <button
               type="button"
@@ -132,7 +135,7 @@ export default function AdminOrdersPage() {
               onClick={() => setPage((current) => current + 1)}
               className="h-9 rounded-full border border-frost-300 px-4 font-semibold text-pine disabled:opacity-40"
             >
-              다음
+              {t("admin.orders.next")}
             </button>
           </div>
         </footer>

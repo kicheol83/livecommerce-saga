@@ -8,10 +8,13 @@ import { StatusBreakdown } from "@/components/admin/StatusBreakdown";
 import { usePolling } from "@/hooks/usePolling";
 import { adminApi } from "@/lib/adminApi";
 import { formatCount, formatDuration, formatWon } from "@/lib/format";
+import { t } from "@/i18n/core";
+import { useI18n } from "@/i18n/I18nProvider";
 
 const REFRESH_MS = 5000;
 
 export default function AdminDashboardPage() {
+  useI18n();
   const loadDashboard = useCallback(async () => {
     const [orders, payments, paymentOutbox, inventoryOutbox, products] = await Promise.all([
       adminApi.orderSummary(),
@@ -32,8 +35,8 @@ export default function AdminDashboardPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="대시보드"
-        description="주문 Saga, 결제, 이벤트 전달 상태를 5초마다 갱신해요."
+        title={t("admin.dashboard.title")}
+        description={t("admin.dashboard.description")}
         updatedAt={updatedAt}
         failed={failed}
         onRefresh={refresh}
@@ -41,38 +44,38 @@ export default function AdminDashboardPage() {
 
       <div className="grid grid-cols-2 gap-4 xl:grid-cols-5">
         <Metric
-          label="24시간 주문"
+          label={t("admin.dashboard.orders24h")}
           value={orders === null ? "…" : formatCount(orders.ordersLast24h)}
-          hint={orders === null ? undefined : `완료 ${formatCount(orders.completedLast24h)}건`}
+          hint={orders === null ? undefined : t("admin.dashboard.completedCount", { count: formatCount(orders.completedLast24h) })}
         />
-        <Metric label="완료율" value={conversion === null ? "없음" : `${conversion}%`} hint="24시간 기준" />
+        <Metric label={t("admin.dashboard.conversion")} value={conversion === null ? t("common.none") : `${conversion}%`} hint={t("admin.dashboard.last24h")} />
         <Metric
-          label="완료 매출"
+          label={t("admin.dashboard.revenue")}
           value={orders === null ? "…" : formatWon(orders.completedRevenue)}
-          hint={data === null ? undefined : `환불 ${formatWon(data.payments.refundedAmount)}`}
+          hint={data === null ? undefined : t("admin.dashboard.refunded", { amount: formatWon(data.payments.refundedAmount) })}
         />
         <Metric
-          label="평균 처리 시간"
-          value={orders?.averageCompletionSeconds == null ? "없음" : formatDuration(orders.averageCompletionSeconds)}
-          hint="주문부터 완료까지"
+          label={t("admin.dashboard.avgTime")}
+          value={orders?.averageCompletionSeconds == null ? t("common.none") : formatDuration(orders.averageCompletionSeconds)}
+          hint={t("admin.dashboard.avgTimeHint")}
         />
         <Metric
-          label="정체된 주문"
+          label={t("admin.dashboard.stuck")}
           value={orders === null ? "…" : formatCount(orders.stalledOrders)}
-          hint="자동 복구 대기"
+          hint={t("admin.dashboard.stuckHint")}
           tone={orders !== null && orders.stalledOrders > 0 ? "danger" : "neutral"}
         />
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[1.6fr_1fr]">
-        <Panel title="최근 30분 주문 흐름">
+        <Panel title={t("admin.dashboard.flow")}>
           {orders === null ? (
             <div className="h-44 animate-pulse rounded-[12px] bg-frost motion-reduce:animate-none" />
           ) : (
             <OrdersChart buckets={orders.ordersPerMinute} />
           )}
         </Panel>
-        <Panel title="주문 상태 분포">
+        <Panel title={t("admin.dashboard.distribution")}>
           {orders === null ? (
             <div className="h-44 animate-pulse rounded-[12px] bg-frost motion-reduce:animate-none" />
           ) : (
@@ -82,29 +85,29 @@ export default function AdminDashboardPage() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
-        <OutboxHealthCard title="결제 이벤트 전달" health={data?.paymentOutbox ?? null} />
-        <OutboxHealthCard title="재고 이벤트 전달" health={data?.inventoryOutbox ?? null} />
-        <Panel title="라이브 상품 재고">
+        <OutboxHealthCard title={t("admin.dashboard.paymentOutbox")} health={data?.paymentOutbox ?? null} />
+        <OutboxHealthCard title={t("admin.dashboard.inventoryOutbox")} health={data?.inventoryOutbox ?? null} />
+        <Panel title={t("admin.dashboard.liveStock")}>
           {product === null ? (
             <div className="h-24 animate-pulse rounded-[12px] bg-frost motion-reduce:animate-none" />
           ) : (
             <dl className="space-y-3 text-[14px]">
               <div className="flex justify-between">
-                <dt className="text-ash">판매 가능</dt>
-                <dd className="font-bold tabular-nums">{formatCount(product.quantityAvailable)}개</dd>
+                <dt className="text-ash">{t("admin.stock.available")}</dt>
+                <dd className="font-bold tabular-nums">{t("common.units", { count: formatCount(product.quantityAvailable) })}</dd>
               </div>
               <div className="flex justify-between">
-                <dt className="text-ash">결제 대기 중 확보</dt>
+                <dt className="text-ash">{t("admin.stock.held")}</dt>
                 <dd className="font-bold tabular-nums">
-                  {formatCount(product.heldQuantity)}개 ({formatCount(product.heldOrders)}건)
+                  {t("common.units", { count: formatCount(product.heldQuantity) })} ({t("common.cases", { count: formatCount(product.heldOrders) })})
                 </dd>
               </div>
               <div className="flex justify-between">
-                <dt className="text-ash">판매 완료</dt>
-                <dd className="font-bold tabular-nums">{formatCount(product.soldQuantity)}개</dd>
+                <dt className="text-ash">{t("admin.stock.sold")}</dt>
+                <dd className="font-bold tabular-nums">{t("common.units", { count: formatCount(product.soldQuantity) })}</dd>
               </div>
               <div className="flex justify-between">
-                <dt className="text-ash">판매가</dt>
+                <dt className="text-ash">{t("admin.stock.price")}</dt>
                 <dd className="font-bold tabular-nums">{formatWon(product.unitPrice)}</dd>
               </div>
             </dl>

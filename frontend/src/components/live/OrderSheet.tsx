@@ -9,6 +9,7 @@ import { addressLine } from "@/lib/shipping";
 import type { OrderSnapshot } from "@/lib/types";
 import { PaymentPanel } from "./PaymentPanel";
 import { SagaStepper } from "./SagaStepper";
+import { t } from "@/i18n/core";
 
 type OrderSheetProps = {
   snapshot: OrderSnapshot | null;
@@ -25,27 +26,27 @@ const NO_OP = () => undefined;
 function describe(snapshot: OrderSnapshot | null, productName: string, quantity: number, remaining: number | null) {
   const outcome = outcomeOf(snapshot);
   if (outcome === "completed") {
-    return { title: "주문이 완료됐어요", description: `${productName} ${quantity}개를 주문했어요.` };
+    return { title: t("sheet.completedTitle"), description: t("sheet.completedBody", { product: productName, quantity }) };
   }
   if (outcome === "cancelled") {
-    return { title: "주문이 취소됐어요", description: failureMessage(snapshot?.failureReason ?? null) };
+    return { title: t("sheet.cancelledTitle"), description: failureMessage(snapshot?.failureReason ?? null) };
   }
   switch (snapshot?.status) {
     case "AWAITING_PAYMENT":
       return {
-        title: "결제를 진행해 주세요",
+        title: t("sheet.payTitle"),
         description:
           remaining === null
-            ? "재고를 확보했어요. 시간 안에 결제하지 않으면 주문이 자동으로 취소돼요."
-            : `재고를 확보했어요. ${formatRemaining(remaining)} 안에 결제하지 않으면 주문이 자동으로 취소돼요.`
+            ? t("sheet.payBody")
+            : t("sheet.payBodyTimed", { time: formatRemaining(remaining) })
       };
     case "PAYMENT_CONFIRMING":
     case "CONFIRMING_STOCK":
-      return { title: "결제를 확인하고 있어요", description: "결제 승인과 재고 확정이 끝나면 바로 알려 드릴게요." };
+      return { title: t("sheet.verifyingTitle"), description: t("sheet.verifyingBody") };
     case "COMPENSATING":
-      return { title: "주문을 처리하고 있어요", description: "재고를 확정하지 못해 결제를 환불하고 있어요." };
+      return { title: t("sheet.compensatingTitle"), description: t("sheet.compensatingBody") };
     default:
-      return { title: "재고를 확보하고 있어요", description: "잠시만 기다려 주세요. 재고를 확보하면 바로 결제할 수 있어요." };
+      return { title: t("sheet.reservingTitle"), description: t("sheet.reservingBody") };
   }
 }
 
@@ -97,7 +98,7 @@ export function OrderSheet({ snapshot, productName, quantity, user, cancelling, 
         </p>
         {awaitingPayment && user?.shippingAddress != null && (
           <p className="mt-3 rounded-[12px] bg-white px-3.5 py-2.5 text-[13px] leading-relaxed text-ash">
-            <span className="font-semibold text-pine">배송지</span> {user.shippingAddress.recipientName},{" "}
+            <span className="font-semibold text-pine">{t("sheet.shippingTo")}</span> {user.shippingAddress.recipientName},{" "}
             {addressLine(user.shippingAddress)}
           </p>
         )}
@@ -105,7 +106,7 @@ export function OrderSheet({ snapshot, productName, quantity, user, cancelling, 
         {showPayment && snapshot !== null && snapshot.amount !== null && user !== null && (
           <PaymentPanel
             orderId={snapshot.orderId}
-            orderName={`${productName} ${quantity}개`}
+            orderName={t("sheet.orderName", { product: productName, quantity })}
             amount={snapshot.amount}
             customerKey={user.userId}
             customerEmail={user.email}
@@ -113,7 +114,7 @@ export function OrderSheet({ snapshot, productName, quantity, user, cancelling, 
           />
         )}
         {snapshot !== null && (
-          <p className="mt-5 text-[12px] text-ash tabular-nums">주문번호 {snapshot.orderId.slice(0, 8)}</p>
+          <p className="mt-5 text-[12px] text-ash tabular-nums">{t("sheet.orderNumber", { id: snapshot.orderId.slice(0, 8) })}</p>
         )}
         {awaitingPayment ? (
           <button
@@ -122,7 +123,7 @@ export function OrderSheet({ snapshot, productName, quantity, user, cancelling, 
             disabled={cancelling}
             className="mt-3 h-12 w-full rounded-[14px] border border-frost-300 bg-white text-[15px] font-semibold text-pine disabled:opacity-50"
           >
-            {cancelling ? "취소하는 중" : "주문 취소"}
+            {cancelling ? t("sheet.cancelling") : t("sheet.cancel")}
           </button>
         ) : (
           <button
@@ -130,7 +131,7 @@ export function OrderSheet({ snapshot, productName, quantity, user, cancelling, 
             onClick={onClose}
             className="mt-4 h-12 w-full rounded-[14px] bg-pine text-[15px] font-semibold text-frost"
           >
-            {outcome === "processing" ? "닫기" : "확인"}
+            {outcome === "processing" ? t("common.close") : t("common.confirm")}
           </button>
         )}
       </section>

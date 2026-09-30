@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import "pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css";
 import "./globals.css";
+import { I18nProvider } from "@/i18n/I18nProvider";
 
 export const metadata: Metadata = {
   title: {
@@ -21,7 +22,9 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="ko">
-      <body className="break-keep bg-pine font-sans text-pine antialiased">{children}</body>
+      <body className="break-keep bg-pine font-sans text-pine antialiased">
+        <I18nProvider>{children}</I18nProvider>
+      </body>
     </html>
   );
 }

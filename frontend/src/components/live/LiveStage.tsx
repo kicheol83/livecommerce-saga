@@ -1,4 +1,5 @@
 import { LIVE_VIDEO_URL } from "@/lib/config";
+import { t } from "@/i18n/core";
 
 type LiveStageProps = {
   hostName: string;
@@ -14,7 +15,7 @@ export function LiveStage({ hostName }: LiveStageProps) {
         muted
         loop
         playsInline
-        aria-label={`${hostName} 라이브 방송`}
+        aria-label={t("live.stageAria", { host: hostName })}
       />
     );
   }
@@ -31,7 +32,7 @@ export function LiveStage({ hostName }: LiveStageProps) {
           {hostName.slice(0, 1)}
         </div>
         <p className="max-w-[18rem] text-[12px] leading-relaxed text-frost/70 [@media(max-height:760px)]:hidden">
-          데모에서는 라이브 영상 대신 시뮬레이션 화면이 나와요
+          {t("live.stageNotice")}
         </p>
       </div>
     </div>

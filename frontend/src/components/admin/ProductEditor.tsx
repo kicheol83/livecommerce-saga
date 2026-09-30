@@ -4,6 +4,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { adminApi } from "@/lib/adminApi";
 import type { AdminProduct } from "@/lib/adminTypes";
 import { formatCount, formatWon } from "@/lib/format";
+import { t } from "@/i18n/core";
 
 type ProductEditorProps = {
   product: AdminProduct;
@@ -27,8 +28,8 @@ export function ProductEditor({ product, productName, onSaved }: ProductEditorPr
 
   const parsedQuantity = Number(quantity);
   const parsedPrice = Number(price);
-  const quantityError = !Number.isInteger(parsedQuantity) || parsedQuantity < 0 ? "0 이상의 정수를 입력해 주세요." : null;
-  const priceError = !Number.isFinite(parsedPrice) || parsedPrice <= 0 ? "0보다 큰 금액을 입력해 주세요." : null;
+  const quantityError = !Number.isInteger(parsedQuantity) || parsedQuantity < 0 ? t("admin.editor.quantityError") : null;
+  const priceError = !Number.isFinite(parsedPrice) || parsedPrice <= 0 ? t("admin.editor.priceError") : null;
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -41,10 +42,10 @@ export function ProductEditor({ product, productName, onSaved }: ProductEditorPr
     setSaving(false);
     if (result.ok) {
       setDirty(false);
-      setMessage({ tone: "ok", text: "저장했어요. 라이브 화면에 바로 반영돼요." });
+      setMessage({ tone: "ok", text: t("admin.editor.saved") });
       onSaved();
     } else {
-      setMessage({ tone: "error", text: "저장하지 못했어요. 입력값을 확인해 주세요." });
+      setMessage({ tone: "error", text: t("admin.editor.saveFailed") });
     }
   };
 
@@ -63,18 +64,18 @@ export function ProductEditor({ product, productName, onSaved }: ProductEditorPr
         </div>
         <dl className="flex gap-6 text-[13px]">
           <div>
-            <dt className="text-ash">결제 대기 중 확보</dt>
+            <dt className="text-ash">{t("admin.stock.held")}</dt>
             <dd className="mt-0.5 text-[18px] font-bold tabular-nums">
-              {formatCount(product.heldQuantity)}개
-              <span className="ml-1 text-[13px] font-medium text-ash">({formatCount(product.heldOrders)}건)</span>
+              {t("common.units", { count: formatCount(product.heldQuantity) })}
+              <span className="ml-1 text-[13px] font-medium text-ash">({t("common.cases", { count: formatCount(product.heldOrders) })})</span>
             </dd>
           </div>
           <div>
-            <dt className="text-ash">판매 완료</dt>
-            <dd className="mt-0.5 text-[18px] font-bold tabular-nums">{formatCount(product.soldQuantity)}개</dd>
+            <dt className="text-ash">{t("admin.stock.sold")}</dt>
+            <dd className="mt-0.5 text-[18px] font-bold tabular-nums">{t("common.units", { count: formatCount(product.soldQuantity) })}</dd>
           </div>
           <div>
-            <dt className="text-ash">현재 판매가</dt>
+            <dt className="text-ash">{t("admin.stock.currentPrice")}</dt>
             <dd className="mt-0.5 text-[18px] font-bold tabular-nums">{formatWon(product.unitPrice)}</dd>
           </div>
         </dl>
@@ -83,7 +84,7 @@ export function ProductEditor({ product, productName, onSaved }: ProductEditorPr
       <form onSubmit={handleSubmit} noValidate className="mt-5 grid gap-4 border-t border-frost-300 pt-5 sm:grid-cols-[1fr_1fr_auto] sm:items-start">
         <div>
           <label htmlFor={`quantity-${product.productId}`} className="text-[13px] font-semibold">
-            판매 가능 수량
+            {t("admin.editor.quantity")}
           </label>
           <input
             id={`quantity-${product.productId}`}
@@ -97,7 +98,7 @@ export function ProductEditor({ product, productName, onSaved }: ProductEditorPr
         </div>
         <div>
           <label htmlFor={`price-${product.productId}`} className="text-[13px] font-semibold">
-            판매가 (원)
+            {t("admin.editor.price")}
           </label>
           <input
             id={`price-${product.productId}`}
@@ -114,11 +115,11 @@ export function ProductEditor({ product, productName, onSaved }: ProductEditorPr
           disabled={!dirty || saving || quantityError !== null || priceError !== null}
           className="h-11 rounded-[10px] bg-pine px-5 text-[14px] font-semibold text-frost disabled:bg-ash/40 sm:mt-[26px]"
         >
-          {saving ? "저장하는 중" : "저장"}
+          {saving ? t("common.saving") : t("common.save")}
         </button>
       </form>
       <p className="mt-3 text-[12px] leading-relaxed text-ash">
-        판매가를 바꾸면 이후 새로 확보되는 주문부터 적용돼요. 이미 결제 대기 중인 주문의 금액은 바뀌지 않아요.
+        {t("admin.editor.note")}
       </p>
       {message !== null && (
         <p role="status" className={`mt-2 text-[13px] font-medium ${message.tone === "ok" ? "text-pine" : "text-cranberry"}`}>

@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 import { EyeIcon } from "./Icons";
+import { t } from "@/i18n/core";
+import { LanguageSwitcher } from "@/i18n/LanguageSwitcher";
 
 type LiveHeaderProps = {
   hostName: string;
@@ -24,11 +26,12 @@ export function LiveHeader({ hostName, title, viewers, account }: LiveHeaderProp
       <span className="rounded-[6px] bg-cranberry px-1.5 py-0.5 text-[11px] font-extrabold tracking-wide">LIVE</span>
       <span
         className="flex items-center gap-1 rounded-[6px] bg-black/40 px-1.5 py-0.5 text-[12px] font-semibold tabular-nums"
-        aria-label={`${viewers}명 시청 중`}
+        aria-label={t("live.viewers", { count: viewers })}
       >
         <EyeIcon className="h-3.5 w-3.5" />
         {viewers}
       </span>
+      <LanguageSwitcher compact />
       {account}
     </header>
   );

@@ -1,14 +1,16 @@
-const MESSAGES: Record<string, string> = {
-  INVALID_CREDENTIALS: "이메일 또는 비밀번호가 올바르지 않아요.",
-  EMAIL_TAKEN: "이미 가입된 이메일이에요.",
-  NICKNAME_TAKEN: "이미 사용 중인 닉네임이에요.",
-  ACCOUNT_CONFLICT: "이미 사용 중인 이메일이나 닉네임이에요.",
-  VALIDATION_FAILED: "입력한 내용을 다시 확인해 주세요.",
-  NETWORK_ERROR: "서버에 연결할 수 없어요. 잠시 후 다시 시도해 주세요."
-};
+import { t, translatedRecord } from "@/i18n/core";
+
+const MESSAGES: Record<string, string> = translatedRecord({
+  INVALID_CREDENTIALS: "auth.error.INVALID_CREDENTIALS",
+  EMAIL_TAKEN: "auth.error.EMAIL_TAKEN",
+  NICKNAME_TAKEN: "auth.error.NICKNAME_TAKEN",
+  ACCOUNT_CONFLICT: "auth.error.ACCOUNT_CONFLICT",
+  VALIDATION_FAILED: "auth.error.VALIDATION_FAILED",
+  NETWORK_ERROR: "common.networkError"
+});
 
 export function authErrorMessage(code: string): string {
-  return MESSAGES[code] ?? "요청을 처리하지 못했어요. 잠시 후 다시 시도해 주세요.";
+  return MESSAGES[code] ?? t("common.requestFailed");
 }
 
 export function safeNextPath(value: string | null): string {
@@ -30,13 +32,13 @@ const NICKNAME_PATTERN = /^[\p{L}\p{N}_]{2,20}$/u;
 export function validateSignup(fields: SignupFields): Partial<Record<keyof SignupFields, string>> {
   const errors: Partial<Record<keyof SignupFields, string>> = {};
   if (!EMAIL_PATTERN.test(fields.email.trim())) {
-    errors.email = "이메일 형식을 확인해 주세요.";
+    errors.email = t("auth.validation.email");
   }
   if (!NICKNAME_PATTERN.test(fields.nickname.trim())) {
-    errors.nickname = "닉네임은 2~20자의 한글, 영문, 숫자, _만 쓸 수 있어요.";
+    errors.nickname = t("auth.validation.nickname");
   }
   if (fields.password.length < 8 || fields.password.length > 72) {
-    errors.password = "비밀번호는 8자 이상 72자 이하로 입력해 주세요.";
+    errors.password = t("auth.validation.password");
   }
   return errors;
 }

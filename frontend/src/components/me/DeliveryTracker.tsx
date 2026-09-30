@@ -5,6 +5,7 @@ import { fetchDelivery } from "@/lib/api";
 import { formatDateTime, formatRelative } from "@/lib/format";
 import { DELIVERY_HEADLINE, DELIVERY_STEPS, deliveryStepIndex } from "@/lib/shipping";
 import type { Delivery } from "@/lib/types";
+import { t } from "@/i18n/core";
 
 const REFRESH_MS = 6000;
 
@@ -51,7 +52,7 @@ export function DeliveryTracker({ orderId }: { orderId: string }) {
   return (
     <div className="mt-4 border-t border-frost-300 pt-4">
       <p className="text-[16px] font-bold">
-        {delivery === null ? (loaded ? "배송 정보를 준비하고 있어요" : "배송 정보를 불러오는 중") : DELIVERY_HEADLINE[delivery.status]}
+        {delivery === null ? (loaded ? t("delivery.preparingInfo") : t("delivery.loadingInfo")) : DELIVERY_HEADLINE[delivery.status]}
       </p>
       {latest !== null && (
         <p className="mt-0.5 text-[13px] text-ash">
@@ -59,7 +60,7 @@ export function DeliveryTracker({ orderId }: { orderId: string }) {
         </p>
       )}
 
-      <ol className="mt-4 grid grid-cols-5" aria-label="배송 단계">
+      <ol className="mt-4 grid grid-cols-5" aria-label={t("delivery.stepsLabel")}>
         {DELIVERY_STEPS.map((label, index) => {
           const done = index < current || (index === current && delivered);
           const active = index === current && !delivered;
@@ -80,7 +81,7 @@ export function DeliveryTracker({ orderId }: { orderId: string }) {
               <span className={`mt-1.5 text-[11px] leading-tight ${active ? "font-bold text-cranberry" : done ? "font-semibold text-pine" : "text-ash"}`}>
                 {label}
               </span>
-              <span className="sr-only">{done ? "완료" : active ? "진행 중" : "대기"}</span>
+              <span className="sr-only">{done ? t("delivery.state.done") : active ? t("delivery.state.active") : t("delivery.state.pending")}</span>
             </li>
           );
         })}
@@ -98,7 +99,7 @@ export function DeliveryTracker({ orderId }: { orderId: string }) {
               onClick={() => setExpanded((value) => !value)}
               className="font-semibold text-pine underline underline-offset-4"
             >
-              {expanded ? "배송 조회 닫기" : "배송 조회"}
+              {expanded ? t("delivery.trackClose") : t("delivery.trackOpen")}
             </button>
           </div>
           {expanded && (

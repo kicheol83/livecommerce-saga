@@ -20,6 +20,8 @@ import { LiveStage } from "./LiveStage";
 import { OrderSheet } from "./OrderSheet";
 import { ProductPanel } from "./ProductPanel";
 import { ConnectionNotice, SessionError, SessionSkeleton, Toast } from "./StatusOverlays";
+import { t } from "@/i18n/core";
+import { useI18n } from "@/i18n/I18nProvider";
 
 type LoadState = "loading" | "ready" | "error";
 type OrderPhase = "idle" | "address" | "submitting" | "tracking";
@@ -28,6 +30,7 @@ const CHAT_HISTORY_LIMIT = 50;
 const TOAST_DURATION_MS = 3500;
 
 export function LiveRoom() {
+  useI18n();
   const router = useRouter();
   const resumeOrderId = useSearchParams().get("order");
   const auth = useAuth();
@@ -128,7 +131,7 @@ export function LiveRoom() {
         setOrderPhase("tracking");
       } catch {
         setOrderPhase("idle");
-        setToast("주문을 접수하지 못했어요. 잠시 후 다시 시도해 주세요.");
+        setToast(t("live.toast.orderFailed"));
       }
     },
     [quantity, session]
@@ -177,9 +180,9 @@ export function LiveRoom() {
     if (result.ok) {
       setOrderPhase("idle");
       setCreatedOrder(null);
-      setToast("주문을 취소했어요. 확보했던 재고는 바로 반환됐어요.");
+      setToast(t("live.toast.orderCancelled"));
     } else {
-      setToast("주문을 취소하지 못했어요. 잠시 후 다시 시도해 주세요.");
+      setToast(t("live.toast.cancelFailed"));
     }
   }, [cancelling, trackedOrderId]);
 
@@ -196,7 +199,7 @@ export function LiveRoom() {
           setOrderPhase("tracking");
         }
       })
-      .catch(() => setToast("주문 정보를 불러오지 못했어요."));
+      .catch(() => setToast(t("live.toast.orderLoadFailed")));
   }, [auth.status, resumeOrderId, router]);
 
   const { sendChat } = channel;
@@ -204,7 +207,7 @@ export function LiveRoom() {
     (text: string) => {
       const sent = sendChat(text);
       if (!sent) {
-        setToast("채팅 연결이 끊겨 보내지 못했어요.");
+        setToast(t("live.toast.chatDisconnected"));
       }
       return sent;
     },
@@ -212,7 +215,7 @@ export function LiveRoom() {
   );
 
   const handleLogout = useCallback(() => {
-    void logout().then(() => setToast("로그아웃했어요."));
+    void logout().then(() => setToast(t("live.toast.loggedOut")));
   }, []);
 
   const chatMode = auth.status !== "authenticated" ? "guest" : channel.state === "open" ? "ready" : "connecting";
@@ -230,7 +233,7 @@ export function LiveRoom() {
         {loadState === "ready" && session !== null && (
           <>
             <ConnectionNotice state={channel.state} />
-            <section className="relative min-h-0 flex-1" aria-label="라이브 방송">
+            <section className="relative min-h-0 flex-1" aria-label={t("live.broadcast")}>
               <LiveStage hostName={session.hostName} />
               <LiveHeader
                 hostName={session.hostName}

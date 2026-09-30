@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { ORDER_STATUS_LABEL, ORDER_STATUS_TONE, TONE_CLASS, type Tone } from "@/lib/adminFormat";
 import { formatClock } from "@/lib/format";
 import type { OrderStatus } from "@/lib/types";
+import { t } from "@/i18n/core";
 
 export function PageHeader({
   title,
@@ -25,17 +26,17 @@ export function PageHeader({
       <div className="flex items-center gap-3 text-[13px] text-ash">
         {failed ? (
           <span className="font-semibold text-cranberry" role="status">
-            데이터를 불러오지 못했어요
+            {t("admin.loadFailed")}
           </span>
         ) : updatedAt !== null ? (
-          <span className="tabular-nums">{formatClock(updatedAt)} 기준</span>
+          <span className="tabular-nums">{t("admin.asOf", { time: formatClock(updatedAt) })}</span>
         ) : null}
         <button
           type="button"
           onClick={onRefresh}
           className="h-9 rounded-full border border-frost-300 bg-white px-4 font-semibold text-pine hover:bg-frost-300/40"
         >
-          새로고침
+          {t("admin.refresh")}
         </button>
       </div>
     </header>

@@ -12,8 +12,11 @@ import { formatWon } from "@/lib/format";
 import { failureMessage, outcomeOf, progressSteps } from "@/lib/orderProgress";
 import { paymentSubmitError } from "@/lib/paymentMessages";
 import type { OrderSnapshot } from "@/lib/types";
+import { t } from "@/i18n/core";
+import { useI18n } from "@/i18n/I18nProvider";
 
 export function PaymentSuccess() {
+  useI18n();
   const params = useSearchParams();
   const paymentKey = params.get("paymentKey");
   const orderId = params.get("orderId");
@@ -30,7 +33,7 @@ export function PaymentSuccess() {
     }
     submittedRef.current = true;
     if (paymentKey === null || orderId === null || !Number.isFinite(amount) || amount <= 0) {
-      setError("결제 정보가 올바르지 않아요.");
+      setError(t("paymentPage.invalid"));
       return;
     }
     if (auth.status === "anonymous") {
@@ -58,19 +61,19 @@ export function PaymentSuccess() {
   const outcome = outcomeOf(tracked);
   const title =
     error !== null
-      ? "결제를 확인하지 못했어요"
+      ? t("paymentPage.verifyFailed")
       : outcome === "completed"
-        ? "주문이 완료됐어요"
+        ? t("paymentPage.completed")
         : outcome === "cancelled"
-          ? "주문이 취소됐어요"
-          : "결제를 확인하고 있어요";
+          ? t("paymentPage.cancelled")
+          : t("paymentPage.verifying");
   const description =
     error ??
     (outcome === "completed"
-      ? "주문이 정상적으로 접수됐어요. 라이브로 돌아가 방송을 계속 즐겨 보세요."
+      ? t("paymentPage.completedBody")
       : outcome === "cancelled"
         ? failureMessage(tracked?.failureReason ?? null)
-        : "결제 승인과 재고 확정이 끝나면 이 화면에서 바로 알려 드릴게요.");
+        : t("paymentPage.verifyingBody"));
 
   return (
     <AuthShell title={title} description={description}>
@@ -78,7 +81,7 @@ export function PaymentSuccess() {
         {tracked !== null && <SagaStepper steps={progressSteps(tracked)} />}
         {Number.isFinite(amount) && amount > 0 && (
           <p className="mt-5 flex justify-between text-[15px]">
-            <span className="text-ash">결제 금액</span>
+            <span className="text-ash">{t("paymentPage.amount")}</span>
             <span className="font-bold tabular-nums">{formatWon(amount)}</span>
           </p>
         )}
@@ -87,10 +90,10 @@ export function PaymentSuccess() {
         href="/me"
         className="mt-6 flex h-[52px] items-center justify-center rounded-[14px] bg-pine text-[16px] font-semibold text-frost"
       >
-        주문 내역 보기
+        {t("paymentPage.viewOrders")}
       </Link>
       <Link href="/" className="mt-3 block text-center text-[14px] font-medium text-ash underline underline-offset-4">
-        라이브로 돌아가기
+        {t("common.backToLive")}
       </Link>
     </AuthShell>
   );

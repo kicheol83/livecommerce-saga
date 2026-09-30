@@ -7,6 +7,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { authErrorMessage, safeNextPath, validateSignup, type SignupFields } from "@/lib/authMessages";
 import { signup } from "@/lib/authStore";
 import { TextField } from "./TextField";
+import { t } from "@/i18n/core";
+import { useI18n } from "@/i18n/I18nProvider";
 
 type FieldErrors = Partial<Record<keyof SignupFields, string>>;
 
@@ -16,6 +18,7 @@ const SERVER_FIELD_ERRORS: Record<string, keyof SignupFields> = {
 };
 
 export function SignupForm() {
+  useI18n();
   const router = useRouter();
   const next = safeNextPath(useSearchParams().get("next"));
   const auth = useAuth();
@@ -68,7 +71,7 @@ export function SignupForm() {
     <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
       <TextField
         id="email"
-        label="이메일"
+        label={t("auth.field.email")}
         type="email"
         value={fields.email}
         autoComplete="email"
@@ -78,22 +81,22 @@ export function SignupForm() {
       />
       <TextField
         id="nickname"
-        label="닉네임"
+        label={t("auth.field.nickname")}
         type="text"
         value={fields.nickname}
         autoComplete="nickname"
-        hint="라이브 채팅에 이 이름으로 표시돼요."
+        hint={t("auth.hint.nickname")}
         error={errorFor("nickname")}
         onChange={update("nickname")}
         onBlur={markTouched("nickname")}
       />
       <TextField
         id="password"
-        label="비밀번호"
+        label={t("auth.field.password")}
         type="password"
         value={fields.password}
         autoComplete="new-password"
-        hint="8자 이상 입력해 주세요."
+        hint={t("auth.hint.password")}
         error={errorFor("password")}
         onChange={update("password")}
         onBlur={markTouched("password")}
@@ -108,12 +111,12 @@ export function SignupForm() {
         disabled={submitting}
         className="mt-1 h-[52px] rounded-[14px] bg-cranberry text-[16px] font-bold text-white transition-colors hover:bg-cranberry-700 disabled:bg-ash/50"
       >
-        {submitting ? "가입하는 중" : "가입하기"}
+        {submitting ? t("auth.signup.submitting") : t("auth.signup.submit")}
       </button>
       <p className="text-center text-[14px] text-ash">
-        이미 계정이 있나요?{" "}
+        {t("auth.signup.haveAccount")}{" "}
         <Link href={`/login?next=${encodeURIComponent(next)}`} className="font-semibold text-pine underline underline-offset-4">
-          로그인
+          {t("common.login")}
         </Link>
       </p>
     </form>

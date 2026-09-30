@@ -1,4 +1,5 @@
 import type { OrderStatus } from "./types";
+import { translatedRecord } from "@/i18n/core";
 
 export type Tone = "done" | "progress" | "danger" | "neutral";
 
@@ -12,15 +13,15 @@ export const ORDER_STATUS_ORDER: OrderStatus[] = [
   "CANCELLED"
 ];
 
-export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
-  AWAITING_STOCK: "재고 확보 중",
-  AWAITING_PAYMENT: "결제 대기",
-  PAYMENT_CONFIRMING: "결제 승인 중",
-  CONFIRMING_STOCK: "재고 확정 중",
-  COMPENSATING: "환불 중",
-  COMPLETED: "완료",
-  CANCELLED: "취소"
-};
+export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = translatedRecord({
+  AWAITING_STOCK: "admin.status.AWAITING_STOCK",
+  AWAITING_PAYMENT: "admin.status.AWAITING_PAYMENT",
+  PAYMENT_CONFIRMING: "admin.status.PAYMENT_CONFIRMING",
+  CONFIRMING_STOCK: "admin.status.CONFIRMING_STOCK",
+  COMPENSATING: "admin.status.COMPENSATING",
+  COMPLETED: "admin.status.COMPLETED",
+  CANCELLED: "admin.status.CANCELLED"
+});
 
 export const ORDER_STATUS_TONE: Record<OrderStatus, Tone> = {
   AWAITING_STOCK: "progress",
@@ -35,16 +36,16 @@ export const ORDER_STATUS_TONE: Record<OrderStatus, Tone> = {
 export const RETRYABLE_STATUSES: OrderStatus[] = ["AWAITING_STOCK", "PAYMENT_CONFIRMING", "CONFIRMING_STOCK", "COMPENSATING"];
 export const CANCELLABLE_STATUSES: OrderStatus[] = ["AWAITING_STOCK", "AWAITING_PAYMENT"];
 
-const REASON_LABEL: Record<string, string> = {
-  "insufficient stock": "재고 부족",
-  "inventory step timed out": "재고 응답 지연",
-  "payment window expired": "결제 시간 만료",
-  "cancelled by buyer": "구매자 취소",
-  "cancelled by admin": "관리자 취소",
-  "payment declined": "결제 거절",
-  "stock hold expired": "재고 확보 만료, 환불",
-  "stock hold not found": "재고 확정 실패, 환불"
-};
+const REASON_LABEL: Record<string, string> = translatedRecord({
+  "insufficient stock": "admin.reason.insufficient stock",
+  "inventory step timed out": "admin.reason.inventory step timed out",
+  "payment window expired": "admin.reason.payment window expired",
+  "cancelled by buyer": "admin.reason.cancelled by buyer",
+  "cancelled by admin": "admin.reason.cancelled by admin",
+  "payment declined": "admin.reason.payment declined",
+  "stock hold expired": "admin.reason.stock hold expired",
+  "stock hold not found": "admin.reason.stock hold not found"
+});
 
 export function reasonLabel(reason: string | null): string {
   if (reason === null) {
@@ -53,15 +54,15 @@ export function reasonLabel(reason: string | null): string {
   return REASON_LABEL[reason] ?? reason;
 }
 
-export const EVENT_LABEL: Record<string, string> = {
-  InventoryReserved: "재고 확보",
-  InventoryFailed: "재고 부족",
-  InventoryConfirmed: "재고 확정",
-  InventoryConfirmFailed: "재고 확정 실패",
-  PaymentConfirmed: "결제 승인",
-  PaymentFailed: "결제 거절",
-  PaymentCancelled: "결제 취소"
-};
+export const EVENT_LABEL: Record<string, string> = translatedRecord({
+  InventoryReserved: "admin.event.InventoryReserved",
+  InventoryFailed: "admin.event.InventoryFailed",
+  InventoryConfirmed: "admin.event.InventoryConfirmed",
+  InventoryConfirmFailed: "admin.event.InventoryConfirmFailed",
+  PaymentConfirmed: "admin.event.PaymentConfirmed",
+  PaymentFailed: "admin.event.PaymentFailed",
+  PaymentCancelled: "admin.event.PaymentCancelled"
+});
 
 export const TONE_CLASS: Record<Tone, string> = {
   done: "bg-[#DCEEE4] text-[#1D5A43]",

@@ -1,4 +1,5 @@
 import type { OrderSnapshot, OrderStatus } from "./types";
+import { t, translatedList, translatedRecord } from "@/i18n/core";
 
 export type StepState = "done" | "active" | "pending" | "failed";
 
@@ -9,7 +10,7 @@ export type ProgressStep = {
 
 export type OrderOutcome = "processing" | "completed" | "cancelled";
 
-const STEP_LABELS = ["재고 확보", "결제", "결제 승인", "주문 완료"];
+const STEP_LABELS = translatedList(["order.step.stock", "order.step.payment", "order.step.approval", "order.step.completed"]);
 
 const STATUS_RANK: Record<OrderStatus, number> = {
   AWAITING_STOCK: 0,
@@ -38,15 +39,15 @@ const FAILED_STEP: Record<string, number> = {
   "stock hold not found": 3
 };
 
-const FAILURE_MESSAGES: Record<string, string> = {
-  "insufficient stock": "남은 수량이 부족해 주문하지 못했어요. 결제는 진행되지 않았어요.",
-  "inventory step timed out": "재고 확인이 늦어져 주문이 취소됐어요. 결제는 진행되지 않았어요.",
-  "payment window expired": "결제 시간이 지나 주문이 취소됐어요. 확보했던 재고는 반환됐어요.",
-  "cancelled by buyer": "주문을 취소했어요. 확보했던 재고는 바로 반환됐어요.",
-  "payment declined": "카드사에서 결제를 승인하지 않았어요. 확보했던 재고는 반환됐어요.",
-  "stock hold expired": "결제를 확인하는 동안 재고 확보 시간이 끝나 주문이 취소됐어요. 결제 금액은 자동으로 환불돼요.",
-  "stock hold not found": "재고를 확정하지 못해 주문이 취소됐어요. 결제 금액은 자동으로 환불돼요."
-};
+const FAILURE_MESSAGES: Record<string, string> = translatedRecord({
+  "insufficient stock": "order.failure.insufficient stock",
+  "inventory step timed out": "order.failure.inventory step timed out",
+  "payment window expired": "order.failure.payment window expired",
+  "cancelled by buyer": "order.failure.cancelled by buyer",
+  "payment declined": "order.failure.payment declined",
+  "stock hold expired": "order.failure.stock hold expired",
+  "stock hold not found": "order.failure.stock hold not found"
+});
 
 export function isNewer(next: OrderSnapshot, current: OrderSnapshot | null): boolean {
   if (current === null || current.orderId !== next.orderId) {
@@ -71,9 +72,9 @@ export function outcomeOf(snapshot: OrderSnapshot | null): OrderOutcome {
 
 export function failureMessage(reason: string | null): string {
   if (reason === null) {
-    return "주문이 취소됐어요.";
+    return t("order.failure.default");
   }
-  return FAILURE_MESSAGES[reason] ?? "주문이 취소됐어요.";
+  return FAILURE_MESSAGES[reason] ?? t("order.failure.default");
 }
 
 function markUpTo(index: number, state: StepState): StepState[] {

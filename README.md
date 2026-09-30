@@ -4,7 +4,7 @@
 
 **한국어** | [English](README.en.md)
 
-**Live Demo:** https://live.javohir.dev
+**Live Demo:** https://live.javohir.dev · 화면 언어: 한국어(기본) / English / O'zbekcha
 
 ![LiveCommerce Saga 화면](docs/images/hero.png)
 

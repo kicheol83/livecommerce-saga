@@ -1,4 +1,5 @@
 import type { MinuteBucket } from "@/lib/adminTypes";
+import { locale, t } from "@/i18n/core";
 
 type OrdersChartProps = {
   buckets: MinuteBucket[];
@@ -30,7 +31,7 @@ export function OrdersChart({ buckets, minutes = 30 }: OrdersChartProps) {
         viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
         className="h-auto w-full"
         role="img"
-        aria-label={`최근 ${minutes}분 동안 주문 ${totalCreated}건, 완료 ${totalCompleted}건`}
+        aria-label={t("admin.chart.aria", { minutes, created: totalCreated, completed: totalCompleted })}
       >
         {[0.5, 1].map((ratio) => (
           <line
@@ -47,10 +48,10 @@ export function OrdersChart({ buckets, minutes = 30 }: OrdersChartProps) {
           const x = index * slot + (slot - barWidth) / 2;
           const createdHeight = (point.created / peak) * (plotHeight - 8);
           const completedHeight = (point.completed / peak) * (plotHeight - 8);
-          const label = new Date(point.time).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", hour12: false });
+          const label = new Date(point.time).toLocaleTimeString(locale(), { hour: "2-digit", minute: "2-digit", hour12: false });
           return (
             <g key={point.time}>
-              <title>{`${label} 주문 ${point.created}건, 완료 ${point.completed}건`}</title>
+              <title>{t("admin.chart.bar", { label, created: point.created, completed: point.completed })}</title>
               <rect x={x} y={plotHeight - createdHeight} width={barWidth} height={createdHeight} rx={2} fill="#D6E1E1" />
               <rect x={x} y={plotHeight - completedHeight} width={barWidth} height={completedHeight} rx={2} fill="#16302B" />
               {(index % 10 === 0 || index === minutes - 1) && (
@@ -68,17 +69,17 @@ export function OrdersChart({ buckets, minutes = 30 }: OrdersChartProps) {
           );
         })}
         <text x={WIDTH} y={12} textAnchor="end" fontSize={11} fill="#5B6B70">
-          최대 {peak}건/분
+          {t("admin.chart.peak", { peak })}
         </text>
       </svg>
       <figcaption className="mt-2 flex gap-4 text-[12px] text-ash">
         <span className="flex items-center gap-1.5">
           <span className="h-2.5 w-2.5 rounded-sm bg-frost-300" aria-hidden="true" />
-          생성
+          {t("admin.chart.created")}
         </span>
         <span className="flex items-center gap-1.5">
           <span className="h-2.5 w-2.5 rounded-sm bg-pine" aria-hidden="true" />
-          완료
+          {t("admin.chart.completed")}
         </span>
       </figcaption>
     </figure>
