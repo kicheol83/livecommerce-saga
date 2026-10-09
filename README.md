@@ -18,7 +18,7 @@
 | 성능 개선 | 판매 완료까지 1분 27초 → 약 23초, 주문 생성 p95 5.72초 → 2.68초 |
 | 장애 복구 | Kafka·DB 중단 카오스 테스트에서 이벤트 유실 0건, 이중 결제 0건 |
 | 실시간 방송 | 동시 시청자 500명, 재고 변경 알림 도달률 99.2%, 시청자 수 메시지 98% 감소 |
-| 테스트 | 통합 테스트 22개, 카오스 테스트 3개, k6 부하 테스트 3종 |
+| 테스트 | 통합 테스트 24개, 카오스 테스트 3개, k6 부하 테스트 3종 |
 
 ## 핵심 설계
 
@@ -126,6 +126,7 @@ AWAITING_STOCK → AWAITING_PAYMENT → PAYMENT_CONFIRMING → CONFIRMING_STOCK 
 | inventory 무응답 | 재고 선점을 3회 재시도한 뒤 결제 없이 주문을 취소합니다 | `chaosTest`: `inventory step timed out`, 결제 0건 |
 | 카드 승인 거절 | 주문을 취소하고 선점한 재고를 즉시 반환합니다 | `SagaEndToEndTest` |
 | 클라이언트의 금액 변조 | `AMOUNT_MISMATCH`(400), Toss로 요청이 전혀 나가지 않습니다 | `SagaEndToEndTest` |
+| 한 계정이 결제하지 않은 주문을 여러 개 만들어 재고를 묶음 | 같은 상품에 대해 구매자당 진행 중인 주문은 하나만 허용합니다. 부분 유니크 인덱스(`uq_orders_one_open_per_member_product`)가 동시 요청에서도 보장하고, 두 번째 주문은 `OPEN_ORDER_EXISTS`(409)로 거절되며 화면은 기존 주문으로 이어집니다 | `OpenOrderLimitTest`: 같은 구매자의 동시 요청 10건 중 1건만 생성 |
 | 구매자가 결제하지 않음 | 결제 기한이 지나면 주문을 취소하고 재고를 반환합니다. order-service가 멈춰도 inventory의 자체 스위퍼가 만료된 선점을 반환합니다 | 복구 스케줄러, `HoldExpiryScheduler` |
 | 결제 승인 시점에 선점 만료 | inventory가 `InventoryConfirmFailed`를 보내고 주문은 `COMPENSATING`을 거쳐 Toss로 환불됩니다 | 오케스트레이터 로직 |
 | 같은 메시지 중복 수신 | 상태 전이는 허용된 이전 상태에서만 가능하고(`@Version`), 결제·재고는 `order_id` 기준으로 멱등합니다 | `IdempotencyTest` |
@@ -307,6 +308,8 @@ k6 run smoke.js
 k6 run -e STOCK=100 -e BUYERS=1000 -e VUS=200 -e USERS=200 flash-sale.js
 k6 run -e VIEWERS=500 live-viewers.js
 ```
+
+`flash-sale.js`는 VU마다 구매자 한 명을 사용하므로 `USERS`는 `VUS` 이상이어야 합니다. 구매자당 진행 중인 주문이 하나로 제한되기 때문입니다.
 
 ### 요청 예시
 

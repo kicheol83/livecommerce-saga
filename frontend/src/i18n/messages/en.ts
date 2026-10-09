@@ -267,6 +267,7 @@ export const en: Record<string, string> = {
   "live.toast.cancelFailed": "Couldn't cancel the order. Please try again in a moment.",
   "live.toast.chatDisconnected": "Chat disconnected, so the message wasn't sent.",
   "live.toast.loggedOut": "You're logged out.",
+  "live.toast.openOrderResumed": "You already have an unpaid order for this item. Pay for it or cancel it to continue.",
   "live.toast.orderCancelled": "Order cancelled. The reserved stock was released right away.",
   "live.toast.orderFailed": "Couldn't place the order. Please try again in a moment.",
   "live.toast.orderLoadFailed": "Couldn't load the order.",

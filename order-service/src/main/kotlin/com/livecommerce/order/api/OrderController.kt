@@ -8,6 +8,7 @@ import com.livecommerce.order.api.dto.OrderResponse
 import com.livecommerce.order.api.dto.SubmitPaymentRequest
 import com.livecommerce.order.domain.OrderRepository
 import com.livecommerce.order.saga.BuyerCancellation
+import com.livecommerce.order.saga.OrderCreation
 import com.livecommerce.order.saga.OrderSagaOrchestrator
 import com.livecommerce.order.saga.PaymentSubmission
 import org.springframework.data.domain.PageRequest
@@ -46,8 +47,16 @@ class OrderController(
             return ResponseEntity.badRequest()
                 .body(OrderErrorResponse("INVALID_SHIPPING_ADDRESS", "Shipping address is invalid", violations))
         }
-        val order = orchestrator.createOrder(userId, request.productId, request.quantity, shipping)
-        return ResponseEntity.status(HttpStatus.CREATED).body(OrderResponse.from(order))
+        return when (val result = orchestrator.createOrder(userId, request.productId, request.quantity, shipping)) {
+            is OrderCreation.Created -> ResponseEntity.status(HttpStatus.CREATED).body(OrderResponse.from(result.order))
+            is OrderCreation.OpenOrderExists -> ResponseEntity.status(HttpStatus.CONFLICT).body(
+                OrderErrorResponse(
+                    "OPEN_ORDER_EXISTS",
+                    "Finish or cancel your open order for this product first",
+                    result.orderId?.let { mapOf("orderId" to it.toString()) } ?: emptyMap()
+                )
+            )
+        }
     }
 
     @GetMapping

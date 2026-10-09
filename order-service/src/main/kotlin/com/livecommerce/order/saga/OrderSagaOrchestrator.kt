@@ -16,6 +16,7 @@ import com.livecommerce.order.outbox.OutboxWriter
 import com.livecommerce.order.ws.OrderStatusPublisher
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Component
 import org.springframework.transaction.support.TransactionTemplate
 import java.math.BigDecimal
@@ -37,24 +38,36 @@ class OrderSagaOrchestrator(
     private val log = LoggerFactory.getLogger(OrderSagaOrchestrator::class.java)
     private val paymentWindow: Duration = Duration.ofSeconds(paymentWindowSeconds)
 
-    fun createOrder(memberId: UUID, productId: UUID, quantity: Int, shipping: ShippingAddress): Order {
-        val order = orderRepository.save(
-            Order(
-                id = UUID.randomUUID(),
-                memberId = memberId,
-                productId = productId,
-                quantity = quantity,
-                status = OrderStatus.AWAITING_STOCK,
-                recipientName = shipping.recipientName,
-                recipientPhone = shipping.phone,
-                zipCode = shipping.zipCode,
-                addressLine1 = shipping.address1,
-                addressLine2 = shipping.address2
+    fun createOrder(memberId: UUID, productId: UUID, quantity: Int, shipping: ShippingAddress): OrderCreation {
+        openOrderOf(memberId, productId)?.let { return OrderCreation.OpenOrderExists(it) }
+        val order = try {
+            orderRepository.save(
+                Order(
+                    id = UUID.randomUUID(),
+                    memberId = memberId,
+                    productId = productId,
+                    quantity = quantity,
+                    status = OrderStatus.AWAITING_STOCK,
+                    recipientName = shipping.recipientName,
+                    recipientPhone = shipping.phone,
+                    zipCode = shipping.zipCode,
+                    addressLine1 = shipping.address1,
+                    addressLine2 = shipping.address2
+                )
             )
-        )
+        } catch (e: DataIntegrityViolationException) {
+            if (e.mostSpecificCause.message?.contains(OPEN_ORDER_INDEX) != true) {
+                throw e
+            }
+            return OrderCreation.OpenOrderExists(openOrderOf(memberId, productId))
+        }
         statusPublisher.publish(order)
         requestStockHold(order)
-        return order
+        return OrderCreation.Created(order)
+    }
+
+    private fun openOrderOf(memberId: UUID, productId: UUID): UUID? {
+        return orderRepository.findFirstByMemberIdAndProductIdAndStatusIn(memberId, productId, OPEN_STATUSES)?.id
     }
 
     fun onStockHeld(orderId: UUID, unitPrice: BigDecimal, holdExpiresAt: Instant) {
@@ -292,6 +305,13 @@ class OrderSagaOrchestrator(
         private const val LATE_PAYMENT_REFUND = "payment arrived after the order was cancelled"
         private val HOLD_SAFETY_MARGIN: Duration = Duration.ofSeconds(60)
         private val BUYER_CANCELLABLE = setOf(OrderStatus.AWAITING_STOCK, OrderStatus.AWAITING_PAYMENT)
+        const val OPEN_ORDER_INDEX = "uq_orders_one_open_per_member_product"
+        val OPEN_STATUSES = setOf(
+            OrderStatus.AWAITING_STOCK,
+            OrderStatus.AWAITING_PAYMENT,
+            OrderStatus.PAYMENT_CONFIRMING,
+            OrderStatus.CONFIRMING_STOCK
+        )
         private val RETRYABLE = setOf(
             OrderStatus.AWAITING_STOCK,
             OrderStatus.PAYMENT_CONFIRMING,

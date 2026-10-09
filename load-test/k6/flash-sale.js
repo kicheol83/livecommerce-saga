@@ -5,6 +5,7 @@ import {
   ADMIN_EMAIL,
   ADMIN_PASSWORD,
   adminProduct,
+  cancelOrder,
   createOrder,
   createUsers,
   login,
@@ -63,6 +64,9 @@ function confirmedCount(summary) {
 }
 
 export function setup() {
+  if (USERS < VUS) {
+    throw new Error(`USERS (${USERS}) must be at least VUS (${VUS}): a buyer may have only one open order at a time`);
+  }
   const admin = login(ADMIN_EMAIL, ADMIN_PASSWORD);
   setProduct(admin, STOCK);
   const product = adminProduct(admin);
@@ -76,7 +80,7 @@ export function setup() {
 }
 
 export default function (data) {
-  const token = data.users[exec.scenario.iterationInTest % data.users.length];
+  const token = data.users[(exec.vu.idInTest - 1) % data.users.length];
   const startedAt = Date.now();
 
   const created = createOrder(token, 1);
@@ -92,6 +96,7 @@ export default function (data) {
   const payable = waitForStatus(token, orderId, ["AWAITING_PAYMENT", "CANCELLED"], HOLD_WAIT_SECONDS, POLL_INTERVAL_SECONDS);
   if (payable === null) {
     abandonedOrders.add(1);
+    cancelOrder(token, orderId);
     return;
   }
   if (payable.status === "CANCELLED") {

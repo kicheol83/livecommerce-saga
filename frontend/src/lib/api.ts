@@ -18,6 +18,12 @@ export class ApiError extends Error {
   }
 }
 
+export class OpenOrderExistsError extends ApiError {
+  constructor(public readonly orderId: string) {
+    super(409);
+  }
+}
+
 async function parse<T>(response: Response): Promise<T> {
   if (!response.ok) {
     throw new ApiError(response.status);
@@ -72,6 +78,13 @@ export async function createOrder(input: {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input)
   });
+  if (response.status === 409) {
+    const body = (await response.json().catch(() => ({}))) as { code?: string; fields?: Record<string, string> };
+    if (body.code === "OPEN_ORDER_EXISTS" && body.fields?.orderId) {
+      throw new OpenOrderExistsError(body.fields.orderId);
+    }
+    throw new ApiError(response.status);
+  }
   return toSnapshot(await parse<OrderResponse>(response));
 }
 

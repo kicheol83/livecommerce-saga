@@ -127,7 +127,11 @@ export function buyer(data) {
   }
   const orderId = created.json("orderId");
   const payable = waitForStatus(token, orderId, ["AWAITING_PAYMENT", "CANCELLED"], 10);
-  if (payable === null || payable.status !== "AWAITING_PAYMENT") {
+  if (payable === null) {
+    cancelOrder(token, orderId);
+    return;
+  }
+  if (payable.status !== "AWAITING_PAYMENT") {
     return;
   }
   stockChangesEmitted.add(1);

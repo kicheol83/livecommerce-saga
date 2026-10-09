@@ -18,7 +18,7 @@ A live commerce platform that runs limited-quantity flash sales during a live br
 | Performance work | Sell-out time 1m 27s → about 23s, order creation p95 5.72s → 2.68s |
 | Failure recovery | 0 lost events and 0 double charges in Kafka and database outage chaos tests |
 | Live broadcast | 500 concurrent viewers, 99.2% of stock updates delivered, 98% fewer viewer count messages |
-| Tests | 22 integration tests, 3 chaos tests, 3 k6 load scenarios |
+| Tests | 24 integration tests, 3 chaos tests, 3 k6 load scenarios |
 
 ## Key design decisions
 
@@ -126,6 +126,7 @@ A real trace of one order request flowing gateway → order → inventory → Ka
 | Inventory does not respond | The stock hold is retried three times, then the order is cancelled without any charge | `chaosTest`: `inventory step timed out`, zero payments |
 | Card declined | The order is cancelled and the held stock is released immediately | `SagaEndToEndTest` |
 | Client tampers with the amount | `AMOUNT_MISMATCH` (400); no request ever reaches Toss | `SagaEndToEndTest` |
+| One account opens many unpaid orders to tie up stock | A buyer may have only one open order per product. A partial unique index (`uq_orders_one_open_per_member_product`) enforces it even for concurrent requests; a second order gets `OPEN_ORDER_EXISTS` (409) and the UI resumes the existing order | `OpenOrderLimitTest`: of 10 concurrent requests from one buyer, exactly 1 is created |
 | Buyer never pays | After the payment window the order is cancelled and stock released. Even if order-service is down, inventory's own sweeper releases expired holds | Recovery scheduler, `HoldExpiryScheduler` |
 | Hold expired when payment is confirmed | Inventory returns `InventoryConfirmFailed`; the order goes through `COMPENSATING` and is refunded via Toss | Orchestrator logic |
 | The same message arrives twice | Transitions are allowed only from the expected state (`@Version`); payments and stock are idempotent per `order_id` | `IdempotencyTest` |
@@ -307,6 +308,8 @@ k6 run smoke.js
 k6 run -e STOCK=100 -e BUYERS=1000 -e VUS=200 -e USERS=200 flash-sale.js
 k6 run -e VIEWERS=500 live-viewers.js
 ```
+
+`flash-sale.js` gives each VU its own buyer, so `USERS` must be at least `VUS`: a buyer may have only one open order at a time.
 
 ### Sample requests
 

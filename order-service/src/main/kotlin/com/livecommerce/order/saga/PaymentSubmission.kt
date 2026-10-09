@@ -1,6 +1,12 @@
 package com.livecommerce.order.saga
 
 import com.livecommerce.order.domain.Order
+import java.util.UUID
+
+sealed interface OrderCreation {
+    data class Created(val order: Order) : OrderCreation
+    data class OpenOrderExists(val orderId: UUID?) : OrderCreation
+}
 
 sealed interface PaymentSubmission {
     data class Accepted(val order: Order) : PaymentSubmission

@@ -267,6 +267,7 @@ export const uz: Record<string, string> = {
   "live.toast.cancelFailed": "Buyurtmani bekor qilib bo'lmadi. Birozdan keyin qayta urinib ko'ring.",
   "live.toast.chatDisconnected": "Chat uzilgani uchun xabar yuborilmadi.",
   "live.toast.loggedOut": "Tizimdan chiqdingiz.",
+  "live.toast.openOrderResumed": "Bu mahsulot uchun to'lanmagan buyurtmangiz bor. Uni to'lang yoki bekor qiling.",
   "live.toast.orderCancelled": "Buyurtma bekor qilindi. Band qilingan zaxira darhol qaytarildi.",
   "live.toast.orderFailed": "Buyurtmani qabul qilib bo'lmadi. Birozdan keyin qayta urinib ko'ring.",
   "live.toast.orderLoadFailed": "Buyurtma ma'lumotlarini yuklab bo'lmadi.",

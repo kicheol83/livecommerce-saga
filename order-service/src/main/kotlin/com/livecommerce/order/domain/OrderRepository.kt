@@ -11,6 +11,12 @@ interface OrderRepository : JpaRepository<Order, UUID> {
 
     fun findAllByMemberId(memberId: UUID, pageable: Pageable): Page<Order>
 
+    fun findFirstByMemberIdAndProductIdAndStatusIn(
+        memberId: UUID,
+        productId: UUID,
+        statuses: Collection<OrderStatus>
+    ): Order?
+
     fun findTop50ByStatusInAndUpdatedAtBeforeOrderByUpdatedAtAsc(
         statuses: Collection<OrderStatus>,
         threshold: Instant

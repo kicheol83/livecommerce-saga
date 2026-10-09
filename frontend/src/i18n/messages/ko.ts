@@ -267,6 +267,7 @@ export const ko: Record<string, string> = {
   "live.toast.cancelFailed": "주문을 취소하지 못했어요. 잠시 후 다시 시도해 주세요.",
   "live.toast.chatDisconnected": "채팅 연결이 끊겨 보내지 못했어요.",
   "live.toast.loggedOut": "로그아웃했어요.",
+  "live.toast.openOrderResumed": "결제하지 않은 주문이 이미 있어요. 그 주문을 이어서 결제하거나 취소해 주세요.",
   "live.toast.orderCancelled": "주문을 취소했어요. 확보했던 재고는 바로 반환됐어요.",
   "live.toast.orderFailed": "주문을 접수하지 못했어요. 잠시 후 다시 시도해 주세요.",
   "live.toast.orderLoadFailed": "주문 정보를 불러오지 못했어요.",

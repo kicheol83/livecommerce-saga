@@ -6,7 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useCountdown } from "@/hooks/useCountdown";
 import { useLiveChannel } from "@/hooks/useLiveChannel";
 import { useOrderTracker } from "@/hooks/useOrderTracker";
-import { cancelOrder, createOrder, fetchChatHistory, fetchOrder, fetchSession } from "@/lib/api";
+import { OpenOrderExistsError, cancelOrder, createOrder, fetchChatHistory, fetchOrder, fetchSession } from "@/lib/api";
 import { logout, updateCurrentUser, type AuthUser } from "@/lib/authStore";
 import { MAX_ORDER_QUANTITY } from "@/lib/config";
 import { isTerminal } from "@/lib/orderProgress";
@@ -129,7 +129,21 @@ export function LiveRoom() {
         const order = await createOrder({ productId: session.productId, quantity, shippingAddress });
         setCreatedOrder(order);
         setOrderPhase("tracking");
-      } catch {
+      } catch (error) {
+        if (error instanceof OpenOrderExistsError) {
+          try {
+            const existing = await fetchOrder(error.orderId);
+            setOrderedQuantity(existing.quantity ?? quantity);
+            setCreatedOrder(existing);
+            setOrderPhase("tracking");
+            setToast(t("live.toast.openOrderResumed"));
+            return;
+          } catch {
+            setOrderPhase("idle");
+            setToast(t("live.toast.orderLoadFailed"));
+            return;
+          }
+        }
         setOrderPhase("idle");
         setToast(t("live.toast.orderFailed"));
       }
