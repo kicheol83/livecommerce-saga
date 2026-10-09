@@ -201,7 +201,7 @@ AWAITING_STOCK → AWAITING_PAYMENT → PAYMENT_CONFIRMING → CONFIRMING_STOCK 
 
 ### 인증과 API Gateway
 
-Access token은 RS256으로 서명한 15분짜리 JWT(`sub`, `nickname`, `roles`)입니다. gateway와 live-service는 auth-service의 JWKS 엔드포인트로 서명을 검증하므로, 비밀 키는 한 서비스에만 존재합니다.
+Access token은 RS256으로 서명한 15분짜리 JWT(`sub`, `nickname`, `roles`)입니다. gateway와 live-service는 auth-service의 JWKS 엔드포인트로 서명을 검증하므로, 비밀 키는 한 서비스에만 존재합니다. 서명 키는 `JWT_SIGNING_KEY`에서 읽고 key id는 공개 키의 RFC 7638 thumbprint로 정하므로, auth-service를 재시작하거나 배포해도 이미 발급된 토큰이 그대로 유효합니다.
 
 Refresh token은 JWT가 아닌 32바이트 난수이며, DB에는 SHA-256 해시만 저장하고 브라우저에서는 `HttpOnly`, `SameSite=Strict` 쿠키로만 전달됩니다. 갱신할 때마다 교체(rotation)되고, 이미 사용된 토큰이 다시 오면 탈취로 간주해 같은 세션 계열 전체를 폐기합니다. 이 폐기가 오류 응답 시에도 유지되도록 트랜잭션에 `noRollbackFor`를 지정했습니다. 로그인 시 존재하지 않는 이메일도 비밀번호 해시를 계산해, 응답 시간으로 가입 여부를 알 수 없게 했습니다.
 
@@ -344,7 +344,7 @@ Flyway 마이그레이션은 되돌리지 않으므로 모든 마이그레이션
 
 - `Dockerfile.prod`는 Gradle 빌드를 한 번만 수행하고, 서비스마다 별도의 런타임 이미지를 만듭니다. 모든 JVM은 root가 아닌 사용자로 실행되며 컨테이너 메모리 한도를 기준으로 힙을 잡습니다.
 - 외부에서 접근할 수 있는 컨테이너는 `edge`(Caddy) 하나뿐입니다. `/api/*`와 `/ws/*`는 API Gateway로, 나머지는 Next.js로 전달합니다. PostgreSQL, Kafka, Jaeger와 각 서비스의 포트는 외부에 노출하지 않습니다.
-- 운영 환경에서는 관리자 계정(`ADMIN_EMAIL`, `ADMIN_PASSWORD`), DB 비밀번호, 택배 웹훅 서명 키를 반드시 `.env`로 지정해야 하며, 없으면 컨테이너가 시작되지 않습니다. 리프레시 토큰 쿠키는 `Secure`로 설정됩니다.
+- 운영 환경에서는 관리자 계정(`ADMIN_EMAIL`, `ADMIN_PASSWORD`), DB 비밀번호, 택배 웹훅 서명 키, JWT 서명 키(`JWT_SIGNING_KEY`: PKCS#8 RSA 개인 키를 한 줄 base64로, 예: `openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 | base64 -w0`)를 반드시 `.env`로 지정해야 하며, 없으면 컨테이너가 시작되지 않습니다. 리프레시 토큰 쿠키는 `Secure`로 설정됩니다.
 - 부하 테스트용 가짜 결제(`fake_` 키)는 운영에서 기본적으로 꺼져 있습니다(`PAYMENTS_FAKE_ENABLED=false`).
 - 트레이스 샘플링 비율은 메모리 사용량을 고려해 20%로 낮췄습니다.
 
@@ -352,7 +352,7 @@ Flyway 마이그레이션은 되돌리지 않으므로 모든 마이그레이션
 
 - 부하 테스트 수치는 노트북 한 대에서 모든 구성 요소를 함께 실행한 결과입니다.
 - live-service의 채팅 이력과 시청자 수는 메모리에 있어 단일 인스턴스로 동작합니다. 수평 확장하려면 Redis로 옮기고 인스턴스별 컨슈머 그룹이 필요합니다.
-- JWT 서명 키는 시작할 때마다 새로 생성됩니다. 리프레시 토큰으로 사용자는 알아채지 못하지만, 운영에서는 KMS나 Vault에서 불러와야 합니다.
+- JWT 서명 키는 KMS나 Vault가 아니라 환경 변수(`JWT_SIGNING_KEY`)로 주입하며, 키를 교체하면 그 직전에 발급된 토큰이 잠시 거절됩니다.
 - 결제는 테스트 키로 동작하며, 방송 영상은 시뮬레이션 화면입니다.
 - 요청 제한 카운터는 Gateway 메모리에 있어 Gateway를 여러 대로 늘리면 Redis 같은 공유 저장소가 필요합니다. 로그인 제한은 IP 기준이라 여러 IP에서 한 계정을 노리는 시도는 막지 못합니다.
 

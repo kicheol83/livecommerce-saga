@@ -10,7 +10,8 @@ data class AuthProperties(
     val refreshTokenTtl: Duration,
     val refreshCookieName: String,
     val refreshCookieSecure: Boolean,
-    val admin: AdminAccount
+    val admin: AdminAccount,
+    val signingKey: String = ""
 ) {
     data class AdminAccount(
         val email: String,

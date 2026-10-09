@@ -201,7 +201,7 @@ The "before" latencies are truncated: in the first run k6 gave up on slow orders
 
 ### Authentication and API gateway
 
-Access tokens are 15-minute RS256 JWTs (`sub`, `nickname`, `roles`). The gateway and live-service verify them through auth-service's JWKS endpoint, so the private key lives in exactly one service.
+Access tokens are 15-minute RS256 JWTs (`sub`, `nickname`, `roles`). The gateway and live-service verify them through auth-service's JWKS endpoint, so the private key lives in exactly one service. The key is read from `JWT_SIGNING_KEY` and its key id is the RFC 7638 thumbprint of the public key, so tokens already issued stay valid when auth-service restarts or is redeployed.
 
 Refresh tokens are 32 random bytes rather than JWTs. Only their SHA-256 hash is stored, and the browser carries them solely in an `HttpOnly`, `SameSite=Strict` cookie. Every refresh rotates the token; presenting an already used token is treated as theft and revokes the whole session family. The revocation survives the error response because the transaction is marked `noRollbackFor`. Login also hashes a password for unknown emails, so response timing does not reveal which emails are registered.
 
@@ -344,7 +344,7 @@ Flyway migrations are not rolled back, so every migration must keep working with
 
 - `Dockerfile.prod` runs the Gradle build once and produces a separate runtime image per service. Every JVM runs as a non-root user and sizes its heap from the container memory limit.
 - The only container reachable from outside is `edge` (Caddy): `/api/*` and `/ws/*` go to the API Gateway, everything else to Next.js. PostgreSQL, Kafka, Jaeger and the service ports are never published.
-- In production the admin account (`ADMIN_EMAIL`, `ADMIN_PASSWORD`), the database passwords and the courier webhook signing secret must be set in `.env`; the containers refuse to start without them. The refresh-token cookie is marked `Secure`.
+- In production the admin account (`ADMIN_EMAIL`, `ADMIN_PASSWORD`), the database passwords, the courier webhook signing secret and the JWT signing key (`JWT_SIGNING_KEY`: a PKCS#8 RSA private key, base64 on one line, e.g. `openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 | base64 -w0`) must be set in `.env`; the containers refuse to start without them. The refresh-token cookie is marked `Secure`.
 - The fake payment path for load tests (`fake_` keys) is disabled in production by default (`PAYMENTS_FAKE_ENABLED=false`).
 - Trace sampling is lowered to 20% to keep memory usage in check.
 
@@ -352,7 +352,7 @@ Flyway migrations are not rolled back, so every migration must keep working with
 
 - Load test figures come from running every component together on one laptop.
 - live-service keeps chat history and the viewer count in memory, so it runs as a single instance. Scaling out would move them to Redis and give each instance its own consumer group.
-- The JWT signing key is regenerated on every start. Refresh tokens hide this from users, but production should load the key from KMS or Vault.
+- The JWT signing key comes from the `JWT_SIGNING_KEY` environment variable rather than a KMS or Vault, and rotating it means a short window where earlier tokens are rejected.
 - Payments run on test keys, and the broadcast video is a simulated stage.
 - Rate limit counters live in the gateway's memory; running several gateways would need a shared store such as Redis. The login limit is per IP, so attempts on one account from many addresses are not covered.
 

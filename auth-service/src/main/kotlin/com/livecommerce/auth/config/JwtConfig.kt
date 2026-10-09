@@ -4,6 +4,7 @@ import com.nimbusds.jose.jwk.JWKSet
 import com.nimbusds.jose.jwk.RSAKey
 import com.nimbusds.jose.jwk.source.ImmutableJWKSet
 import com.nimbusds.jose.proc.SecurityContext
+import org.slf4j.LoggerFactory
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.security.crypto.factory.PasswordEncoderFactories
@@ -12,23 +13,19 @@ import org.springframework.security.oauth2.jwt.JwtDecoder
 import org.springframework.security.oauth2.jwt.JwtEncoder
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder
-import java.security.KeyPairGenerator
-import java.security.interfaces.RSAPrivateKey
-import java.security.interfaces.RSAPublicKey
-import java.util.UUID
 
 @Configuration
 class JwtConfig {
 
+    private val log = LoggerFactory.getLogger(JwtConfig::class.java)
+
     @Bean
-    fun signingKey(): RSAKey {
-        val generator = KeyPairGenerator.getInstance("RSA")
-        generator.initialize(RSA_KEY_SIZE)
-        val keyPair = generator.generateKeyPair()
-        return RSAKey.Builder(keyPair.public as RSAPublicKey)
-            .privateKey(keyPair.private as RSAPrivateKey)
-            .keyID(UUID.randomUUID().toString())
-            .build()
+    fun signingKey(properties: AuthProperties): RSAKey {
+        if (properties.signingKey.isNotBlank()) {
+            return SigningKeys.load(properties.signingKey)
+        }
+        log.warn("auth.signing-key is not set; using a temporary key, so issued tokens stop working when this service restarts")
+        return SigningKeys.generate()
     }
 
     @Bean
@@ -44,9 +41,5 @@ class JwtConfig {
     @Bean
     fun passwordEncoder(): PasswordEncoder {
         return PasswordEncoderFactories.createDelegatingPasswordEncoder()
-    }
-
-    companion object {
-        private const val RSA_KEY_SIZE = 2048
     }
 }

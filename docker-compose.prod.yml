@@ -140,6 +140,7 @@ services:
       AUTH_REFRESHCOOKIESECURE: 'true'
       AUTH_ADMIN_EMAIL: ${ADMIN_EMAIL:?ADMIN_EMAIL is required}
       AUTH_ADMIN_PASSWORD: ${ADMIN_PASSWORD:?ADMIN_PASSWORD is required}
+      AUTH_SIGNINGKEY: ${JWT_SIGNING_KEY:?JWT_SIGNING_KEY is required}
     depends_on:
       postgres-auth:
         condition: service_healthy
