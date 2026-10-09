@@ -27,6 +27,7 @@ A live commerce platform that runs limited-quantity flash sales during a live br
 - **Idempotency**: Toss confirmation uses an `Idempotency-Key`, payments and stock holds are idempotent per `order_id`, and every order transition is allowed only from its expected previous state under `@Version`.
 - **Tamper-proof amounts**: the server computes the amount; a client-submitted amount that differs is rejected with `AMOUNT_MISMATCH` before Toss is ever called.
 - **Security boundary**: the gateway verifies JWTs and rewrites identity headers. Refresh tokens rotate on every use, and reuse revokes the whole session family.
+- **Rate limits**: the gateway allows 10 logins per minute and 5 sign-ups per hour per client IP, and 20 order creations per minute per user, answering `429` with `Retry-After` beyond that. The client IP is the first public address from the right of the proxy chain, so a forged `X-Forwarded-For` does not bypass it. A buyer may also have only one open order per product, so one account cannot tie up the stock.
 - **Courier webhooks**: HMAC signatures, replay protection, duplicate suppression, and a status that never moves backwards when events arrive out of order.
 - **Observability**: the outbox stores the W3C `traceparent`, so a saga that crosses Kafka stays a single trace.
 
@@ -345,6 +346,7 @@ docker compose -f docker-compose.prod.yml up -d --build
 - live-service keeps chat history and the viewer count in memory, so it runs as a single instance. Scaling out would move them to Redis and give each instance its own consumer group.
 - The JWT signing key is regenerated on every start. Refresh tokens hide this from users, but production should load the key from KMS or Vault.
 - Payments run on test keys, and the broadcast video is a simulated stage.
+- Rate limit counters live in the gateway's memory; running several gateways would need a shared store such as Redis. The login limit is per IP, so attempts on one account from many addresses are not covered.
 
 ## Project structure
 

@@ -68,6 +68,19 @@ spring:
           predicates:
             - Path=/ws/live/**
 
+gateway:
+  rate-limit:
+    enabled: true
+    login:
+      requests: 10
+      window: 1m
+    signup:
+      requests: 5
+      window: 1h
+    orders:
+      requests: 20
+      window: 1m
+
 management:
   tracing:
     sampling:

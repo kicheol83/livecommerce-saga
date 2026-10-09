@@ -6,7 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useCountdown } from "@/hooks/useCountdown";
 import { useLiveChannel } from "@/hooks/useLiveChannel";
 import { useOrderTracker } from "@/hooks/useOrderTracker";
-import { OpenOrderExistsError, cancelOrder, createOrder, fetchChatHistory, fetchOrder, fetchSession } from "@/lib/api";
+import { ApiError, OpenOrderExistsError, cancelOrder, createOrder, fetchChatHistory, fetchOrder, fetchSession } from "@/lib/api";
 import { logout, updateCurrentUser, type AuthUser } from "@/lib/authStore";
 import { MAX_ORDER_QUANTITY } from "@/lib/config";
 import { isTerminal } from "@/lib/orderProgress";
@@ -145,7 +145,7 @@ export function LiveRoom() {
           }
         }
         setOrderPhase("idle");
-        setToast(t("live.toast.orderFailed"));
+        setToast(t(error instanceof ApiError && error.status === 429 ? "live.toast.rateLimited" : "live.toast.orderFailed"));
       }
     },
     [quantity, session]

@@ -6,6 +6,7 @@ const MESSAGES: Record<string, string> = translatedRecord({
   NICKNAME_TAKEN: "auth.error.NICKNAME_TAKEN",
   ACCOUNT_CONFLICT: "auth.error.ACCOUNT_CONFLICT",
   VALIDATION_FAILED: "auth.error.VALIDATION_FAILED",
+  RATE_LIMITED: "auth.error.RATE_LIMITED",
   NETWORK_ERROR: "common.networkError"
 });
 
