@@ -331,8 +331,16 @@ Invoke-RestMethod -Method Post -Uri "http://localhost:8080/api/orders/$($order.o
 
 ```bash
 cp .env.prod.example .env
-docker compose -f docker-compose.prod.yml up -d --build
+./scripts/deploy.sh
 ```
+
+| 명령 | 동작 |
+| --- | --- |
+| `./scripts/deploy.sh` | 업스트림에 merge conflict 표시가 있으면 중단하고, fast-forward로만 갱신한 뒤 모든 애플리케이션 이미지를 커밋 SHA 태그(`livecommerce-<service>:<sha>`)로 빌드해 실행합니다. 7개 서비스의 `/actuator/health`와 프론트엔드가 내부 네트워크에서 모두 응답한 뒤에만 SHA를 `.env`(`APP_TAG`)와 `.deploy-history`에 기록합니다 |
+| `./scripts/rollback.sh` | 8개 이미지가 모두 있는지 확인한 뒤, 빌드 없이 직전 SHA의 이미지로 컨테이너를 다시 만듭니다 |
+| `./scripts/rollback.sh <sha>` | 지정한 SHA로 되돌립니다 |
+
+Flyway 마이그레이션은 되돌리지 않으므로 모든 마이그레이션은 이전 버전 코드와도 호환되어야 합니다(예: `V5`는 부분 인덱스만 추가). 배포 시 모든 애플리케이션 컨테이너가 재시작되어 JVM이 뜨는 약 1분 동안 서비스가 중단됩니다.
 
 - `Dockerfile.prod`는 Gradle 빌드를 한 번만 수행하고, 서비스마다 별도의 런타임 이미지를 만듭니다. 모든 JVM은 root가 아닌 사용자로 실행되며 컨테이너 메모리 한도를 기준으로 힙을 잡습니다.
 - 외부에서 접근할 수 있는 컨테이너는 `edge`(Caddy) 하나뿐입니다. `/api/*`와 `/ws/*`는 API Gateway로, 나머지는 Next.js로 전달합니다. PostgreSQL, Kafka, Jaeger와 각 서비스의 포트는 외부에 노출하지 않습니다.

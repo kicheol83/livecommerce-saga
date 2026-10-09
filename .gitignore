@@ -11,3 +11,4 @@ out/
 *.log
 .env
 bin/
+.deploy-history

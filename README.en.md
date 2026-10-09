@@ -331,8 +331,16 @@ The live demo runs on a single VPS with Docker Compose.
 
 ```bash
 cp .env.prod.example .env
-docker compose -f docker-compose.prod.yml up -d --build
+./scripts/deploy.sh
 ```
+
+| Command | What it does |
+| --- | --- |
+| `./scripts/deploy.sh` | Stops if upstream contains merge conflict markers, fast-forwards only, builds every application image tagged with the commit SHA (`livecommerce-<service>:<sha>`), starts them, and records the SHA in `.env` (`APP_TAG`) and `.deploy-history` only after all seven services' `/actuator/health` and the frontend answer through the internal network |
+| `./scripts/rollback.sh` | Recreates the containers from the previous SHA's images without building, after checking that all eight images exist |
+| `./scripts/rollback.sh <sha>` | Rolls back to a specific deployed SHA |
+
+Flyway migrations are not rolled back, so every migration must keep working with the previous release (for example, `V5` only adds a partial index). A deploy restarts every application container, so the site is unavailable for roughly a minute while the JVMs start.
 
 - `Dockerfile.prod` runs the Gradle build once and produces a separate runtime image per service. Every JVM runs as a non-root user and sizes its heap from the container memory limit.
 - The only container reachable from outside is `edge` (Caddy): `/api/*` and `/ws/*` go to the API Gateway, everything else to Next.js. PostgreSQL, Kafka, Jaeger and the service ports are never published.

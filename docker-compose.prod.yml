@@ -127,6 +127,7 @@ services:
 
   auth-service:
     <<: *java
+    image: livecommerce-auth-service:${APP_TAG:-latest}
     build:
       context: .
       dockerfile: Dockerfile.prod
@@ -145,6 +146,7 @@ services:
 
   inventory-service:
     <<: *java
+    image: livecommerce-inventory-service:${APP_TAG:-latest}
     build:
       context: .
       dockerfile: Dockerfile.prod
@@ -163,6 +165,7 @@ services:
 
   payment-service:
     <<: *java
+    image: livecommerce-payment-service:${APP_TAG:-latest}
     build:
       context: .
       dockerfile: Dockerfile.prod
@@ -182,6 +185,7 @@ services:
 
   order-service:
     <<: *java
+    image: livecommerce-order-service:${APP_TAG:-latest}
     build:
       context: .
       dockerfile: Dockerfile.prod
@@ -206,6 +210,7 @@ services:
 
   live-service:
     <<: *java
+    image: livecommerce-live-service:${APP_TAG:-latest}
     build:
       context: .
       dockerfile: Dockerfile.prod
@@ -225,6 +230,7 @@ services:
 
   delivery-service:
     <<: *java
+    image: livecommerce-delivery-service:${APP_TAG:-latest}
     build:
       context: .
       dockerfile: Dockerfile.prod
@@ -245,6 +251,7 @@ services:
 
   api-gateway:
     <<: *java
+    image: livecommerce-api-gateway:${APP_TAG:-latest}
     build:
       context: .
       dockerfile: Dockerfile.prod
@@ -266,6 +273,7 @@ services:
       - delivery-service
 
   frontend:
+    image: livecommerce-frontend:${APP_TAG:-latest}
     build:
       context: ./frontend
       args:
